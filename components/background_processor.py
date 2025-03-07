@@ -570,9 +570,12 @@ def calculate_metrics_background():
             
             # Calculate tests per equipment per day
             metrics_results['tests_per_day'] = total_tests / (equipment_units * date_range_days)
+            metrics_results['total_tests'] = total_tests
+
         else:
             # metrics_results['tests_per_day'] =
             metrics_results['tests_per_day'] = 12.5  # Default value
+            metrics_results['total_tests'] = 0
         
         # Store results in shared data
         SHARED_DATA['metrics_results'] = metrics_results

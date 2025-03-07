@@ -335,3 +335,4 @@ pytest_cache/
 
 # Virtual Environments
 visenv/
+dataset
