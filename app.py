@@ -11,6 +11,7 @@ import pymongo
 from bson.objectid import ObjectId
 from datetime import datetime
 import logging
+import json
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -247,31 +248,472 @@ Dashboard, Metrics_Calculation_API = st.tabs(["Dashboard", "Metrics Calculation 
     
 with Dashboard:
     st.success(f"Metrics last updated: {metrics_timestamp.strftime('%Y-%m-%d %H:%M:%S')}")
-    WeekGraph, MonthGraph, TMonthGraph, SMonthGraph = st.tabs(["A Week", "A Month", "3 Months", "6 Months"])
+    Hour, Day, Month = st.tabs(["Hourly", "Daily", "Monthly"])
     @st.cache_data(ttl=60)
-    def sum_by_day(collection_name, filters=None):
+    def sum_by_hour(collection_name):
         try:
-            logger.info("Starting background data loading....")
-            
-            
+            with open(f'forgraph/{collection_name}_graph.json') as file:
+                data = json.load(file)
             return data
-            
         except Exception as e:
             logger.error(f"Error in background data loading: {e}")
             return False
-    with WeekGraph:
-        start_date = datetime.now() - timedelta(days=7)
-        st.info("trend for 1 Weeks from now")
-        data = process_data_background(CONNECTION_STRING, DATABASE_NAME, st.session_state.selected_station, {"start_date": start_date, "end_date": datetime.now()})
-        print(data)
+    
+    @st.cache_data(ttl=60)
+    def sum_by_day(collection_name):
+        try:
+            with open(f'forgraph/{collection_name}_graph.json') as file:
+                hourly_data = json.load(file)
+            # print("0asdfasdfasdfasdfasdfasdfasfefefefe")
+            module = {**hourly_data["module_counts_per_hour"]}
+            del module["module_index"]
+            label = {**hourly_data["label_counts_per_hour"]}
+            del label["_label_index"]
+            method = {**hourly_data["method_counts_per_hour"]}
+            del method["method_index"]
+            repo = {**hourly_data["repo_counts_per_hour"]}
+            del repo["repo_index"]
+            log = {"log_counts_per_hour": hourly_data["log_counts_per_hour"]}
+            group = {**hourly_data["group_counts_per_hour"]}
+            del group["_group_index"]
+            # print("1asdfasdfasdfasdfasdfasdfasfefefefe")
+            daily_data = pd.DataFrame({
+                "date": [d[:10] for d in hourly_data["dates"]],  # Extract YYYY-MM
+                **module,
+                **label,
+                **method,
+                **repo,
+                **log,
+                **group,
+            })
+            daily_aggregated = daily_data.groupby("date").sum().reset_index()
+            daily_result = {
+                "dates": daily_aggregated["date"].tolist()
+            }
+            # print("2asdfasdfasdfasdfasdfasdfasfefefefe")
+            module_count_per_day = {}
+            module_count_per_day["module_index"] = hourly_data["module_counts_per_hour"]["module_index"]
+            for index in hourly_data["module_counts_per_hour"]["module_index"]:
+                if index == None:
+                    index_t = "null"
+                else:
+                    index_t = str(index)
+                module_count_per_day[index_t] = daily_aggregated[index_t].tolist()
+            
+            label_count_per_day = {}
+            label_count_per_day["_label_index"] = hourly_data["label_counts_per_hour"]["_label_index"]
+            for index in hourly_data["label_counts_per_hour"]["_label_index"]:
+                if index == None:
+                    index_t = "null"
+                else:
+                    index_t = str(index)
+                label_count_per_day[index_t] = daily_aggregated[index_t].tolist()
+
+            method_count_per_day = {}
+            method_count_per_day["method_index"] = hourly_data["method_counts_per_hour"]["method_index"]
+            for index in hourly_data["method_counts_per_hour"]["method_index"]:
+                if index == None:
+                    index_t = "null"
+                else:
+                    index_t = str(index)
+                method_count_per_day[index_t] = daily_aggregated[index_t].tolist()
+
+            repo_count_per_day = {}
+            repo_count_per_day["repo_index"] = hourly_data["repo_counts_per_hour"]["repo_index"]
+            for index in hourly_data["repo_counts_per_hour"]["repo_index"]:
+                if index == None:
+                    index_t = "null"
+                else:
+                    index_t = str(index)
+                repo_count_per_day[index_t] = daily_aggregated[index_t].tolist()
+
+            group_count_per_day = {}
+            group_count_per_day["_group_index"] = hourly_data["group_counts_per_hour"]["_group_index"]
+            for index in hourly_data["group_counts_per_hour"]["_group_index"]:
+                if index == None:
+                    index_t = "null"
+                else:
+                    index_t = str(index)
+                group_count_per_day[index_t] = daily_aggregated[index_t].tolist()
+
+            daily_result["module_counts_per_day"] = module_count_per_day
+            daily_result["label_counts_per_day"] = label_count_per_day
+            daily_result["method_counts_per_day"] = method_count_per_day
+            daily_result["repo_counts_per_day"] = repo_count_per_day
+            daily_result["group_counts_per_day"] = group_count_per_day
+            daily_result["log_counts_per_day"] = daily_aggregated["log_counts_per_hour"].tolist()
+
+            return daily_result
+        except Exception as e:
+            logger.error(f"Error in summing data by day: {e}")
+            return False
+        
+    @st.cache_data(ttl=60)
+    def sum_by_month(collection_name):
+        try:
+            with open(f'forgraph/{collection_name}_graph.json') as file:
+                hourly_data = json.load(file)
+            # print("0asdfasdfasdfasdfasdfasdfasfefefefe")
+            module = {**hourly_data["module_counts_per_hour"]}
+            del module["module_index"]
+            label = {**hourly_data["label_counts_per_hour"]}
+            del label["_label_index"]
+            method = {**hourly_data["method_counts_per_hour"]}
+            del method["method_index"]
+            repo = {**hourly_data["repo_counts_per_hour"]}
+            del repo["repo_index"]
+            log = {"log_counts_per_hour": hourly_data["log_counts_per_hour"]}
+            group = {**hourly_data["group_counts_per_hour"]}
+            del group["_group_index"]
+            # print("1asdfasdfasdfasdfasdfasdfasfefefefe")
+            monthly_data = pd.DataFrame({
+                "date": [d[:7] for d in hourly_data["dates"]],  # Extract YYYY-MM
+                **module,
+                **label,
+                **method,
+                **repo,
+                **log,
+                **group,
+            })
+            monthly_aggregated = monthly_data.groupby("date").sum().reset_index()
+            monthly_result = {
+                "dates": monthly_aggregated["date"].tolist()
+            }
+            # print("2asdfasdfasdfasdfasdfasdfasfefefefe")
+            module_count_per_month = {}
+            module_count_per_month["module_index"] = hourly_data["module_counts_per_hour"]["module_index"]
+            for index in hourly_data["module_counts_per_hour"]["module_index"]:
+                if index == None:
+                    index_t = "null"
+                else:
+                    index_t = str(index)
+                module_count_per_month[index_t] = monthly_aggregated[index_t].tolist()
+            
+            label_count_per_month = {}
+            label_count_per_month["_label_index"] = hourly_data["label_counts_per_hour"]["_label_index"]
+            for index in hourly_data["label_counts_per_hour"]["_label_index"]:
+                if index == None:
+                    index_t = "null"
+                else:
+                    index_t = str(index)
+                label_count_per_month[index_t] = monthly_aggregated[index_t].tolist()
+
+            method_count_per_month = {}
+            method_count_per_month["method_index"] = hourly_data["method_counts_per_hour"]["method_index"]
+            for index in hourly_data["method_counts_per_hour"]["method_index"]:
+                if index == None:
+                    index_t = "null"
+                else:
+                    index_t = str(index)
+                method_count_per_month[index_t] = monthly_aggregated[index_t].tolist()
+
+            repo_count_per_month = {}
+            repo_count_per_month["repo_index"] = hourly_data["repo_counts_per_hour"]["repo_index"]
+            for index in hourly_data["repo_counts_per_hour"]["repo_index"]:
+                if index == None:
+                    index_t = "null"
+                else:
+                    index_t = str(index)
+                repo_count_per_month[index_t] = monthly_aggregated[index_t].tolist()
+
+            group_count_per_month = {}
+            group_count_per_month["_group_index"] = hourly_data["group_counts_per_hour"]["_group_index"]
+            for index in hourly_data["group_counts_per_hour"]["_group_index"]:
+                if index == None:
+                    index_t = "null"
+                else:
+                    index_t = str(index)
+                group_count_per_month[index_t] = monthly_aggregated[index_t].tolist()
+
+            monthly_result["module_counts_per_month"] = module_count_per_month
+            monthly_result["label_counts_per_month"] = label_count_per_month
+            monthly_result["method_counts_per_month"] = method_count_per_month
+            monthly_result["repo_counts_per_month"] = repo_count_per_month
+            monthly_result["group_counts_per_month"] = group_count_per_month
+            monthly_result["log_counts_per_month"] = monthly_aggregated["log_counts_per_hour"].tolist()
+
+            return monthly_result
+        except Exception as e:
+            logger.error(f"Error in summing data by day: {e}")
+            return False
+    
+    with Hour:
+        st.header("Number of Test over time by Station")
+        data = sum_by_hour(st.session_state.selected_station)
         time_logs = pd.DataFrame({
             "timestamp": data["dates"],
             "log_counts_per_hour": data["log_counts_per_hour"]
         })
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x = time_logs['timestamp'], y = time_logs['log_counts_per_hour'], mode = 'lines', name = 'Log counts per hour', showlegend=True))
+        fig.update_layout(
+            title="Number of Test over time by Station",
+            xaxis_title="Timestamp",
+            yaxis_title="Log counts per hour",
+            hovermode="closest",
+            xaxis_rangeslider_visible=False,
+            legend=dict(
+                title="Tests",  # Title for the legend
+                x=0.5,           # Center the legend horizontally
+                y=1.1,         # Position the legend below the plot
+                xanchor="center",  # Anchor the x position at the center
+                yanchor="bottom",     # Anchor the y position at the top
+                traceorder="normal",  # Order the traces in the legend normally
+                font=dict(size=12),   # Font size for legend items
+            )
+        )
+        st.plotly_chart(fig)
+        # st.line_chart(time_logs, x="timestamp", y="log_counts_per_hour")
 
-        st.line_chart(time_logs, x="timestamp", y="tests_per_day")
+        hour_group, hour_label = st.columns(2)
 
+        with hour_group:
+            st.header("Number of Groups over Time")
+            group_time_json = data["group_counts_per_hour"].copy()
+            del group_time_json["_group_index"]
+            time_groups = pd.DataFrame({
+                "timestamp": data["dates"],
+                **group_time_json
+            })
+            fig = go.Figure()
+            for group in group_time_json:
+                if group != "_group_index":  # Avoid plotting the '_group_index'
+                    fig.add_trace(go.Scatter(x=time_groups['timestamp'], y=time_groups[group], mode='lines', name=group, showlegend=True))
+            fig.update_layout(
+                title="Number of Groups over Time",
+                xaxis_title="Timestamp",
+                yaxis_title="Group Counts",
+                hovermode="closest",
+                xaxis_rangeslider_visible=False,
+                legend=dict(
+                    title="Groups",  # Title for the legend
+                    x=0.5,           # Center the legend horizontally
+                    y=1.1,         # Position the legend below the plot
+                    xanchor="center",  # Anchor the x position at the center
+                    yanchor="bottom",     # Anchor the y position at the top
+                    traceorder="normal",  # Order the traces in the legend normally
+                    font=dict(size=12),   # Font size for legend items
+                )
+            )
+            st.plotly_chart(fig)
 
+        with hour_label:
+            st.header("Number of Labels over Time")
+            label_time_json = data["label_counts_per_hour"].copy()
+            del label_time_json["_label_index"]
+            time_labels = pd.DataFrame({
+                "timestamp": data["dates"],
+                **label_time_json
+            })
+            fig = go.Figure()
+            for label in label_time_json:
+                if label != "_label_index":  # Avoid plotting the '_group_index'
+                    fig.add_trace(go.Scatter(x=time_labels['timestamp'], y=time_labels[label], mode='lines', name=label, showlegend=True))
+            fig.update_layout(
+                title="Number of Labels over Time",
+                xaxis_title="Timestamp",
+                yaxis_title="Label Counts",
+                hovermode="closest",
+                xaxis_rangeslider_visible=False,
+                legend=dict(
+                    title="Labels",  # Title for the legend
+                    x=0.5,           # Center the legend horizontally
+                    y=1.1,         # Position the legend below the plot
+                    xanchor="center",  # Anchor the x position at the center
+                    yanchor="bottom",     # Anchor the y position at the top
+                    traceorder="normal",  # Order the traces in the legend normally
+                    font=dict(size=12),   # Font size for legend items
+                )
+            )
+            st.plotly_chart(fig)
+
+        hour_repo, hour_method = st.columns(2)
+
+        with hour_repo:
+            st.header("Number of Repos over Time")
+            # print(data["group_counts_per_hour"])
+            # print("1q1q1q1q1", data["group_counts_per_hour"])
+            group_time_json = data["repo_counts_per_hour"].copy()
+            del group_time_json["repo_index"]
+            time_groups = pd.DataFrame({
+                "timestamp": data["dates"],
+                **group_time_json
+            })
+            repository_index = data["repo_counts_per_hour"]["repo_index"]
+            if None in repository_index:
+                # If there's a None, display a default "null repo" value for y-axis
+                st.line_chart(time_groups, x="timestamp", y=["null"])
+            else:
+                st.line_chart(time_groups, x="timestamp", y=repository_index)
+
+        with hour_method:
+            st.header("Number of Methods over Time")
+            # print(data["group_counts_per_hour"])
+            # print("1q1q1q1q1", data["group_counts_per_hour"])
+            group_time_json = data["method_counts_per_hour"].copy()
+            del group_time_json["method_index"]
+            time_groups = pd.DataFrame({
+                "timestamp": data["dates"],
+                **group_time_json
+            })
+            st.line_chart(time_groups, x="timestamp", y=data["method_counts_per_hour"]["method_index"])
+
+        st.header("Number of Modules over Time")
+        # print(data["group_counts_per_hour"])
+        # print("1q1q1q1q1", data["group_counts_per_hour"])
+        group_time_json = data["module_counts_per_hour"].copy()
+        del group_time_json["module_index"]
+        time_groups = pd.DataFrame({
+            "timestamp": data["dates"],
+            **group_time_json
+        })
+        st.line_chart(time_groups, x="timestamp", y=data["module_counts_per_hour"]["module_index"])
+
+    with Day:
+        start_date = datetime.now() - timedelta(days=90)
+        st.header("Number of Test over time by Station")
+        data = sum_by_day(st.session_state.selected_station)
+        time_logs = pd.DataFrame({
+            "timestamp": data["dates"],
+            "log_counts_per_day": data["log_counts_per_day"]
+        })
+
+        st.line_chart(time_logs, x="timestamp", y="log_counts_per_day")
+
+        day_group, day_label = st.columns(2)
+
+        with day_group:
+            st.header("Number of Groups over Time")
+            group_time_json = data["group_counts_per_day"].copy()
+            del group_time_json["_group_index"]
+            time_groups = pd.DataFrame({
+                "timestamp": data["dates"],
+                **group_time_json
+            })
+            st.line_chart(time_groups, x="timestamp", y=data["group_counts_per_day"]["_group_index"])
+
+        with day_label:
+            st.header("Number of Labels over Time")
+            label_time_json = data["label_counts_per_day"].copy()
+            del label_time_json["_label_index"]
+            time_groups = pd.DataFrame({
+                "timestamp": data["dates"],
+                **label_time_json
+            })
+            st.line_chart(time_groups, x="timestamp", y=data["label_counts_per_day"]["_label_index"])
+
+        day_repo, day_method = st.columns(2)
+
+        with day_repo:
+            st.header("Number of Repos over Time")
+            group_time_json = data["repo_counts_per_day"].copy()
+            del group_time_json["repo_index"]
+            time_groups = pd.DataFrame({
+                "timestamp": data["dates"],
+                **group_time_json
+            })
+            repository_index = data["repo_counts_per_day"]["repo_index"]
+            if None in repository_index:
+                # If there's a None, display a default "null repo" value for y-axis
+                st.line_chart(time_groups, x="timestamp", y=["null"])
+            else:
+                st.line_chart(time_groups, x="timestamp", y=repository_index)
+
+        with day_method:
+            st.header("Number of Methods over Time")
+            # print(data["group_counts_per_hour"])
+            # print("1q1q1q1q1", data["group_counts_per_hour"])
+            group_time_json = data["method_counts_per_day"].copy()
+            del group_time_json["method_index"]
+            time_groups = pd.DataFrame({
+                "timestamp": data["dates"],
+                **group_time_json
+            })
+            st.line_chart(time_groups, x="timestamp", y=data["method_counts_per_day"]["method_index"])
+
+        st.header("Number of Modules over Time")
+        # print(data["group_counts_per_hour"])
+        # print("1q1q1q1q1", data["group_counts_per_hour"])
+        group_time_json = data["module_counts_per_day"].copy()
+        del group_time_json["module_index"]
+        time_groups = pd.DataFrame({
+            "timestamp": data["dates"],
+            **group_time_json
+        })
+        st.line_chart(time_groups, x="timestamp", y=data["module_counts_per_day"]["module_index"])
+
+    with Month:
+        start_date = datetime.now() - timedelta(days=90)
+        st.header("Number of Test over time by Station")
+        data = sum_by_month(st.session_state.selected_station)
+        time_logs = pd.DataFrame({
+            "timestamp": data["dates"],
+            "log_counts_per_month": data["log_counts_per_month"]
+        })
+
+        st.line_chart(time_logs, x="timestamp", y="log_counts_per_month")
+
+        month_group, month_label = st.columns(2)
+
+        with month_group:
+            st.header("Number of Groups over Time")
+            group_time_json = data["group_counts_per_month"].copy()
+            del group_time_json["_group_index"]
+            time_groups = pd.DataFrame({
+                "timestamp": data["dates"],
+                **group_time_json
+            })
+            st.line_chart(time_groups, x="timestamp", y=data["group_counts_per_month"]["_group_index"])
+
+        with month_label:
+            st.header("Number of Labels over Time")
+            label_time_json = data["label_counts_per_month"].copy()
+            del label_time_json["_label_index"]
+            time_groups = pd.DataFrame({
+                "timestamp": data["dates"],
+                **label_time_json
+            })
+            st.line_chart(time_groups, x="timestamp", y=data["label_counts_per_month"]["_label_index"])
+
+        month_repo, month_method = st.columns(2)
+
+        with month_repo:
+            st.header("Number of Repos over Time")
+            group_time_json = data["repo_counts_per_month"].copy()
+            del group_time_json["repo_index"]
+            time_groups = pd.DataFrame({
+                "timestamp": data["dates"],
+                **group_time_json
+            })
+            repository_index = data["repo_counts_per_month"]["repo_index"]
+            if None in repository_index:
+                # If there's a None, display a default "null repo" value for y-axis
+                st.line_chart(time_groups, x="timestamp", y=["null"])
+            else:
+                st.line_chart(time_groups, x="timestamp", y=repository_index)
+
+        with month_method:
+            st.header("Number of Methods over Time")
+            # print(data["group_counts_per_hour"])
+            # print("1q1q1q1q1", data["group_counts_per_hour"])
+            group_time_json = data["method_counts_per_month"].copy()
+            del group_time_json["method_index"]
+            time_groups = pd.DataFrame({
+                "timestamp": data["dates"],
+                **group_time_json
+            })
+            st.line_chart(time_groups, x="timestamp", y=data["method_counts_per_month"]["method_index"])
+
+        st.header("Number of Modules over Time")
+        # print(data["group_counts_per_hour"])
+        # print("1q1q1q1q1", data["group_counts_per_hour"])
+        group_time_json = data["module_counts_per_month"].copy()
+        del group_time_json["module_index"]
+        time_groups = pd.DataFrame({
+            "timestamp": data["dates"],
+            **group_time_json
+        })
+        st.line_chart(time_groups, x="timestamp", y=data["module_counts_per_month"]["module_index"])
 
 with Metrics_Calculation_API:
     # Metrics Tab

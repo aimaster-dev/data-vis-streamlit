@@ -69,7 +69,6 @@ def process_data_background(connection_string, database_name, collection_name, f
         label_counts_per_hour = count_records_per_hour("_label")
         method_counts_per_hour = count_records_per_hour("method")
         repo_counts_per_hour = count_records_per_hour("repo")
-        group_counts_per_hour = count_records_per_hour("_group")
 
         # Function to convert counts into the desired dictionary format
         def to_dict_format(counts_per_hour, field):
@@ -91,16 +90,11 @@ def process_data_background(connection_string, database_name, collection_name, f
                 ]
             return result
 
-        log_counts_per_hour = df_filtered.groupby(df_filtered['datetime'].dt.floor('h'))["_id"].nunique()
-        log_counts_per_hour.index = log_counts_per_hour.index.strftime('%Y-%m-%d-%H')
-        log_counts_per_hour = log_counts_per_hour.reindex(all_hours_str, fill_value=0)
-
         # Convert each field's counts to the desired format
         module_counts_filled = to_dict_format(module_counts_per_hour, "module")
         label_counts_filled = to_dict_format(label_counts_per_hour, "_label")
         method_counts_filled = to_dict_format(method_counts_per_hour, "method")
         repo_counts_filled = to_dict_format(repo_counts_per_hour, "repo")
-        group_counts_filled = to_dict_format(group_counts_per_hour, "_group")
 
         # Prepare the data dictionary
         data = {
@@ -109,8 +103,6 @@ def process_data_background(connection_string, database_name, collection_name, f
             "label_counts_per_hour": label_counts_filled,
             "method_counts_per_hour": method_counts_filled,
             "repo_counts_per_hour": repo_counts_filled,
-            "log_counts_per_hour": log_counts_per_hour.tolist(),
-            "group_counts_per_hour": group_counts_filled
         }
 
         # Convert any pandas/numpy types to standard Python types for JSON serialization
@@ -243,7 +235,7 @@ if __name__ == '__main__':
     # process_data_background("mongodb+srv://piyushaaryan:dW2iDwGyu6GIIn5t@visdb.ukrkn.mongodb.net/", "equipment", "KAAPP2Q", {"start_date": datetime.now() - timedelta(days=90), "end_date": datetime.now()})
     # process_data_background("mongodb+srv://piyushaaryan:dW2iDwGyu6GIIn5t@visdb.ukrkn.mongodb.net/", "equipment", "StationAA", {"start_date": datetime.now() - timedelta(days=90), "end_date": datetime.now()})
     # process_data_background("mongodb+srv://piyushaaryan:dW2iDwGyu6GIIn5t@visdb.ukrkn.mongodb.net/", "equipment", "StationK", {"start_date": datetime.now() - timedelta(days=90), "end_date": datetime.now()})
-    process_data_background("mongodb+srv://piyushaaryan:dW2iDwGyu6GIIn5t@visdb.ukrkn.mongodb.net/", "equipment", "StationL", {"start_date": datetime.now() - timedelta(days=90), "end_date": datetime.now()})
+    # process_data_background("mongodb+srv://piyushaaryan:dW2iDwGyu6GIIn5t@visdb.ukrkn.mongodb.net/", "equipment", "StationL", {"start_date": datetime.now() - timedelta(days=90), "end_date": datetime.now()})
     # process_data_background("mongodb+srv://piyushaaryan:dW2iDwGyu6GIIn5t@visdb.ukrkn.mongodb.net/", "equipment", "StationS", {"start_date": datetime.now() - timedelta(days=90), "end_date": datetime.now()})
-    # process_data_background("mongodb+srv://piyushaaryan:dW2iDwGyu6GIIn5t@visdb.ukrkn.mongodb.net/", "equipment", "StationW", {"start_date": datetime.now() - timedelta(days=90), "end_date": datetime.now()})
-    process_data_background("mongodb+srv://piyushaaryan:dW2iDwGyu6GIIn5t@visdb.ukrkn.mongodb.net/", "equipment", "VSPartial", {"start_date": datetime.now() - timedelta(days=90), "end_date": datetime.now()})
+    process_data_background("mongodb+srv://piyushaaryan:dW2iDwGyu6GIIn5t@visdb.ukrkn.mongodb.net/", "equipment", "StationW", {"start_date": datetime.now() - timedelta(days=90), "end_date": datetime.now()})
+    # process_data_background("mongodb+srv://piyushaaryan:dW2iDwGyu6GIIn5t@visdb.ukrkn.mongodb.net/", "equipment", "VSPartial", {"start_date": datetime.now() - timedelta(days=90), "end_date": datetime.now()})
