@@ -29,6 +29,71 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+st.markdown("""
+<style>
+    .main-header {
+        font-size: 26px;
+        font-weight: bold;
+        color: #1E3A8A;
+        margin-bottom: 20px;
+    }
+    .section-header {
+        font-size: 20px;
+        font-weight: bold;
+        color: #1E3A8A;
+        margin-top: 10px;
+        margin-bottom: 10px;
+    }
+    .metric-card {
+        background-color: white;
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+    }
+    .metric-title {
+        font-size: 16px;
+        font-weight: 500;
+        color: #666;
+        margin-bottom: 10px;
+    }
+    .metric-value {
+        font-size: 24px;
+        font-weight: bold;
+        color: #1E3A8A;
+    }
+    .metric-formula {
+        font-size: 12px;
+        color: #888;
+        font-style: italic;
+        margin-bottom: 10px;
+    }
+    .trend-up {
+        color: #4CAF50;
+        font-weight: bold;
+    }
+    .trend-down {
+        color: #F44336;
+        font-weight: bold;
+    }
+    .trend-neutral {
+        color: #9E9E9E;
+        font-weight: bold;
+    }
+    .missing-data {
+        color: #9E9E9E;
+        font-style: italic;
+    }
+    .chart-container {
+        background-color: white;
+        border-radius: 8px;
+        padding: 15px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+    }
+</style>
+""", unsafe_allow_html=True)
+
 # MongoDB connection details
 CONNECTION_STRING = "mongodb+srv://piyushaaryan:dW2iDwGyu6GIIn5t@visdb.ukrkn.mongodb.net/"
 DATABASE_NAME = "equipment"
@@ -50,6 +115,89 @@ if "selected_repo" not in st.session_state:
 
 if "selected_module" not in st.session_state:
     st.session_state.selected_module = "All Modules"
+
+def create_gauge_chart(value, title, min_val=0, max_val=100, good_threshold=75, warning_threshold=50, is_missing=False):
+    """
+    Create a gauge chart for metrics visualization
+    
+    Args:
+        value: Value to display on gauge
+        title: Title for the gauge
+        min_val: Minimum value on gauge scale
+        max_val: Maximum value on gauge scale
+        good_threshold: Threshold for good performance (green)
+        warning_threshold: Threshold for warning performance (yellow)
+        is_missing: Whether the data is missing
+        
+    Returns:
+        plotly.graph_objects.Figure: Gauge chart figure
+    """
+    # Handle None values
+    value = 0 if value is None else value
+    
+    if is_missing:
+        # Gray color for missing data
+        color = "#CCCCCC"
+        title = f"{title} (No Data)"
+    else:
+        # Determine color based on thresholds
+        if value >= good_threshold:
+            color = "#4CAF50"  # Good - Green
+        elif value >= warning_threshold:
+            color = "#FFC107"  # Warning - Yellow/Amber
+        else:
+            color = "#F44336"  # Danger - Red
+    
+    # Create the gauge chart
+    fig = go.Figure(go.Indicator(
+        mode="gauge+number",
+        value=value,
+        title={'text': title, 'font': {'size': 14, 'color': '#666'}},
+        number={'suffix': "%", 'font': {'size': 20, 'color': '#1E3A8A'}},
+        gauge={
+            'axis': {'range': [min_val, max_val], 'tickwidth': 1, 'tickcolor': "#666"},
+            'bar': {'color': color},
+            'bgcolor': "white",
+            'borderwidth': 2,
+            'bordercolor': "#DDDDDD",
+            'steps': [
+                {'range': [min_val, warning_threshold], 'color': '#FFECB3'},
+                {'range': [warning_threshold, good_threshold], 'color': '#E6EE9C'},
+                {'range': [good_threshold, max_val], 'color': '#C8E6C9'}
+            ],
+            'threshold': {
+                'line': {'color': "black", 'width': 2},
+                'thickness': 0.75,
+                'value': value
+            }
+        }
+    ))
+    
+    # Update layout
+    fig.update_layout(
+        height=250,  # Increased height
+        margin=dict(l=30, r=30, t=60, b=40),  # Increased top and bottom margins
+        paper_bgcolor="white",
+        font={'color': "#333", 'family': "Arial, sans-serif"},  # Better font
+        autosize=True,  # Allow auto-sizing
+    )
+    
+    return fig
+
+# Helper function to safely get values
+def safe_get_metric(metrics, key, default=None):
+    """Get a metric value safely, handling None values and missing data"""
+    if not metrics:
+        return {"value": default, "is_missing": True}
+    
+    value = metrics.get(key)
+    if value is None:
+        # Check if we have missing data flag
+        if metrics.get("missing_data", False):
+            return {"value": default, "is_missing": True}
+        return {"value": default, "is_missing": False}
+    
+    return {"value": value, "is_missing": False}
 
 # Force garbage collection at start
 gc.collect()
@@ -460,6 +608,12 @@ with Dashboard:
                 yanchor="bottom",     # Anchor the y position at the top
                 traceorder="normal",  # Order the traces in the legend normally
                 font=dict(size=12),   # Font size for legend items
+            ),
+            xaxis=dict(
+                tickmode='array',  # Use a specific set of tick values
+                tickvals=time_logs['timestamp'][::96],  # Show every 24th timestamp (change this number as needed)
+                ticktext=time_logs['timestamp'][::96],  # Custom labels for tick marks (you can customize this)
+                tickangle=45  # Rotate the tick labels to make them more readable
             )
         )
         st.plotly_chart(fig)
@@ -493,6 +647,12 @@ with Dashboard:
                     yanchor="bottom",     # Anchor the y position at the top
                     traceorder="normal",  # Order the traces in the legend normally
                     font=dict(size=12),   # Font size for legend items
+                ),
+                xaxis=dict(
+                    tickmode='array',  # Use a specific set of tick values
+                    tickvals=time_groups['timestamp'][::192],  # Show every 24th timestamp (change this number as needed)
+                    ticktext=time_groups['timestamp'][::192],  # Custom labels for tick marks (you can customize this)
+                    tickangle=45  # Rotate the tick labels to make them more readable
                 )
             )
             st.plotly_chart(fig)
@@ -523,6 +683,12 @@ with Dashboard:
                     yanchor="bottom",     # Anchor the y position at the top
                     traceorder="normal",  # Order the traces in the legend normally
                     font=dict(size=12),   # Font size for legend items
+                ),
+                xaxis=dict(
+                    tickmode='array',  # Use a specific set of tick values
+                    tickvals=time_labels['timestamp'][::192],  # Show every 24th timestamp (change this number as needed)
+                    ticktext=time_labels['timestamp'][::192],  # Custom labels for tick marks (you can customize this)
+                    tickangle=45  # Rotate the tick labels to make them more readable
                 )
             )
             st.plotly_chart(fig)
@@ -576,6 +742,12 @@ with Dashboard:
                     yanchor='bottom',     # Position the legend at the top
                     traceorder="normal",  # Order the traces in the legend normally
                     font=dict(size=12),   # Font size for legend items
+                ),
+                xaxis=dict(
+                    tickmode='array',  # Use a specific set of tick values
+                    tickvals=time_repos['timestamp'][::192],  # Show every 24th timestamp (change this number as needed)
+                    ticktext=time_repos['timestamp'][::192],  # Custom labels for tick marks (you can customize this)
+                    tickangle=45  # Rotate the tick labels to make them more readable
                 )
             )
 
@@ -616,6 +788,12 @@ with Dashboard:
                     yanchor='bottom',     # Position the legend at the top
                     traceorder="normal",  # Order the traces in the legend normally
                     font=dict(size=12),   # Font size for legend items
+                ),
+                xaxis=dict(
+                    tickmode='array',  # Use a specific set of tick values
+                    tickvals=time_methods['timestamp'][::192],  # Show every 24th timestamp (change this number as needed)
+                    ticktext=time_methods['timestamp'][::192],  # Custom labels for tick marks (you can customize this)
+                    tickangle=45  # Rotate the tick labels to make them more readable
                 )
             )
             # Display the plotly chart in Streamlit
@@ -657,6 +835,12 @@ with Dashboard:
                     yanchor='bottom',     # Position the legend at the top
                     traceorder="normal",  # Order the traces in the legend normally
                     font=dict(size=12),   # Font size for legend items
+                ),
+                xaxis=dict(
+                    tickmode='array',  # Use a specific set of tick values
+                    tickvals=time_methods['timestamp'][::96],  # Show every 24th timestamp (change this number as needed)
+                    ticktext=time_methods['timestamp'][::96],  # Custom labels for tick marks (you can customize this)
+                    tickangle=45  # Rotate the tick labels to make them more readable
                 )
         )
 
@@ -664,15 +848,32 @@ with Dashboard:
         st.plotly_chart(fig)
 
     with Day:
-        start_date = datetime.now() - timedelta(days=90)
         st.header("Number of Test over time by Station")
         data = sum_by_day(st.session_state.selected_station)
         time_logs = pd.DataFrame({
             "timestamp": data["dates"],
             "log_counts_per_day": data["log_counts_per_day"]
         })
-
-        st.line_chart(time_logs, x="timestamp", y="log_counts_per_day")
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x = time_logs['timestamp'], y = time_logs['log_counts_per_day'], mode = 'lines', name = 'Log counts per day', showlegend=True))
+        fig.update_layout(
+            title="Number of Test over time by Station",
+            xaxis_title="Timestamp",
+            yaxis_title="Log counts per day",
+            hovermode="closest",
+            xaxis_rangeslider_visible=False,
+            legend=dict(
+                title="Tests",  # Title for the legend
+                x=0.5,           # Center the legend horizontally
+                y=1.1,         # Position the legend below the plot
+                xanchor="center",  # Anchor the x position at the center
+                yanchor="bottom",     # Anchor the y position at the top
+                traceorder="normal",  # Order the traces in the legend normally
+                font=dict(size=12),   # Font size for legend items
+            )
+        )
+        st.plotly_chart(fig)
+        # st.line_chart(time_logs, x="timestamp", y="log_counts_per_hour")
 
         day_group, day_label = st.columns(2)
 
@@ -684,68 +885,221 @@ with Dashboard:
                 "timestamp": data["dates"],
                 **group_time_json
             })
-            st.line_chart(time_groups, x="timestamp", y=data["group_counts_per_day"]["_group_index"])
+            fig = go.Figure()
+            for group in group_time_json:
+                if group != "_group_index":  # Avoid plotting the '_group_index'
+                    fig.add_trace(go.Scatter(x=time_groups['timestamp'], y=time_groups[group], mode='lines', name=group, showlegend=True))
+            fig.update_layout(
+                title="Number of Groups over Time",
+                xaxis_title="Timestamp",
+                yaxis_title="Group Counts Per Day",
+                hovermode="closest",
+                xaxis_rangeslider_visible=False,
+                legend=dict(
+                    title="Groups",  # Title for the legend
+                    x=0.5,           # Center the legend horizontally
+                    y=1.1,         # Position the legend below the plot
+                    xanchor="center",  # Anchor the x position at the center
+                    yanchor="bottom",     # Anchor the y position at the top
+                    traceorder="normal",  # Order the traces in the legend normally
+                    font=dict(size=12),   # Font size for legend items
+                )
+            )
+            st.plotly_chart(fig)
 
         with day_label:
             st.header("Number of Labels over Time")
             label_time_json = data["label_counts_per_day"].copy()
             del label_time_json["_label_index"]
-            time_groups = pd.DataFrame({
+            time_labels = pd.DataFrame({
                 "timestamp": data["dates"],
                 **label_time_json
             })
-            st.line_chart(time_groups, x="timestamp", y=data["label_counts_per_day"]["_label_index"])
+            fig = go.Figure()
+            for label in label_time_json:
+                if label != "_label_index":  # Avoid plotting the '_group_index'
+                    fig.add_trace(go.Scatter(x=time_labels['timestamp'], y=time_labels[label], mode='lines', name=label, showlegend=True))
+            fig.update_layout(
+                title="Number of Labels over Time",
+                xaxis_title="Timestamp",
+                yaxis_title="Label Counts Per Day",
+                hovermode="closest",
+                xaxis_rangeslider_visible=False,
+                legend=dict(
+                    title="Labels",  # Title for the legend
+                    x=0.5,           # Center the legend horizontally
+                    y=1.1,         # Position the legend below the plot
+                    xanchor="center",  # Anchor the x position at the center
+                    yanchor="bottom",     # Anchor the y position at the top
+                    traceorder="normal",  # Order the traces in the legend normally
+                    font=dict(size=12),   # Font size for legend items
+                )
+            )
+            st.plotly_chart(fig)
 
         day_repo, day_method = st.columns(2)
 
         with day_repo:
             st.header("Number of Repos over Time")
-            group_time_json = data["repo_counts_per_day"].copy()
-            del group_time_json["repo_index"]
-            time_groups = pd.DataFrame({
+            # print(data["group_counts_per_hour"])
+            # print("1q1q1q1q1", data["group_counts_per_hour"])
+            repo_time_json = data["repo_counts_per_day"].copy()
+            del repo_time_json["repo_index"]
+            time_repos = pd.DataFrame({
                 "timestamp": data["dates"],
-                **group_time_json
+                **repo_time_json
             })
             repository_index = data["repo_counts_per_day"]["repo_index"]
-            if None in repository_index:
-                # If there's a None, display a default "null repo" value for y-axis
-                st.line_chart(time_groups, x="timestamp", y=["null"])
-            else:
-                st.line_chart(time_groups, x="timestamp", y=repository_index)
+            fig = go.Figure()
+
+            # Add a trace for each repository
+            for repo in repository_index:
+                if repo is None:
+                    fig.add_trace(go.Scatter(
+                        x=time_repos['timestamp'],
+                        y=[0] * len(time_repos),  # Replace None with zero or a default value
+                        mode='lines',
+                        name="null repo",  # Label the trace as "null repo" in the legend
+                        showlegend=True
+                    ))
+                else:
+                    fig.add_trace(go.Scatter(
+                        x=time_repos['timestamp'],
+                        y=time_repos[repo],  # Use the repository's count values
+                        mode='lines',
+                        name=repo,  # Use the repository name in the legend
+                        showlegend=True
+                    ))
+
+            # Customize the layout
+            fig.update_layout(
+                title="Number of Repos over Time",
+                xaxis_title="Timestamp",
+                yaxis_title="Repo Counts Per Day",
+                hovermode="closest",
+                xaxis_rangeslider_visible=False,  # Adds a range slider for zoom functionality
+                legend=dict(
+                    title="Repositories",  # Title for the legend
+                    x=0.5,                # Center the legend horizontally
+                    y=1.1,                # Position the legend above the plot
+                    xanchor='center',     # Ensure the legend is centered horizontally
+                    yanchor='bottom',     # Position the legend at the top
+                    traceorder="normal",  # Order the traces in the legend normally
+                    font=dict(size=12),   # Font size for legend items
+                )
+            )
+
+            # Display the plot in Streamlit using Plotly
+            st.plotly_chart(fig)
 
         with day_method:
             st.header("Number of Methods over Time")
-            # print(data["group_counts_per_hour"])
-            # print("1q1q1q1q1", data["group_counts_per_hour"])
-            group_time_json = data["method_counts_per_day"].copy()
-            del group_time_json["method_index"]
-            time_groups = pd.DataFrame({
+            methods_time_json = data["method_counts_per_day"].copy()
+            del methods_time_json["method_index"]
+            time_methods = pd.DataFrame({
                 "timestamp": data["dates"],
-                **group_time_json
+                **methods_time_json
             })
-            st.line_chart(time_groups, x="timestamp", y=data["method_counts_per_day"]["method_index"])
+            method_index = data["method_counts_per_day"]["method_index"]
+            # Create the Plotly figure
+            fig = go.Figure()
+            # Add a trace for each method
+            for method in method_index:
+                fig.add_trace(go.Scatter(
+                    x=time_methods['timestamp'],
+                    y=time_methods[method],  # Use the method count values for each method
+                    mode='lines',
+                    name=method,  # Use the method name in the legend
+                    showlegend=True
+                ))
+            # Customize the layout for better readability and style
+            fig.update_layout(
+                title="Number of Methods over Time",
+                xaxis_title="Timestamp",
+                yaxis_title="Method Count Per Day",
+                showlegend=True,  # Display the legend
+                legend=dict(
+                    title="Methods",  # Title for the legend
+                    x=0.5,                # Center the legend horizontally
+                    y=1.1,                # Position the legend above the plot
+                    xanchor='center',     # Ensure the legend is centered horizontally
+                    yanchor='bottom',     # Position the legend at the top
+                    traceorder="normal",  # Order the traces in the legend normally
+                    font=dict(size=12),   # Font size for legend items
+                )
+            )
+            # Display the plotly chart in Streamlit
+            st.plotly_chart(fig)
 
         st.header("Number of Modules over Time")
-        # print(data["group_counts_per_hour"])
-        # print("1q1q1q1q1", data["group_counts_per_hour"])
-        group_time_json = data["module_counts_per_day"].copy()
-        del group_time_json["module_index"]
-        time_groups = pd.DataFrame({
+        module_time_json = data["module_counts_per_day"].copy()
+        del module_time_json["module_index"]
+        time_modules = pd.DataFrame({
             "timestamp": data["dates"],
-            **group_time_json
+            **module_time_json
         })
-        st.line_chart(time_groups, x="timestamp", y=data["module_counts_per_day"]["module_index"])
+        module_index = data["module_counts_per_day"]["module_index"]
+
+        # Create the Plotly figure
+        fig = go.Figure()
+
+        # Add a trace for each module
+        for module in module_index:
+            fig.add_trace(go.Scatter(
+                x=time_modules['timestamp'],
+                y=time_modules[module],  # Use the module count values for each module
+                mode='lines',
+                name=module,  # Use the module name in the legend
+                showlegend=True
+            ))
+
+        # Customize the layout for better readability and style
+        fig.update_layout(
+            title="Number of Modules over Time",
+            xaxis_title="Timestamp",
+            yaxis_title="Module Count Per Day",
+            showlegend=True,  # Display the legend
+            legend=dict(
+                    title="Modules",  # Title for the legend
+                    x=0.5,                # Center the legend horizontally
+                    y=1.1,                # Position the legend above the plot
+                    xanchor='center',     # Ensure the legend is centered horizontally
+                    yanchor='bottom',     # Position the legend at the top
+                    traceorder="normal",  # Order the traces in the legend normally
+                    font=dict(size=12),   # Font size for legend items
+                )
+        )
+
+        # Display the plotly chart in Streamlit
+        st.plotly_chart(fig)
 
     with Month:
-        start_date = datetime.now() - timedelta(days=90)
         st.header("Number of Test over time by Station")
         data = sum_by_month(st.session_state.selected_station)
         time_logs = pd.DataFrame({
             "timestamp": data["dates"],
             "log_counts_per_month": data["log_counts_per_month"]
         })
-
-        st.line_chart(time_logs, x="timestamp", y="log_counts_per_month")
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x = time_logs['timestamp'], y = time_logs['log_counts_per_month'], mode = 'lines', name = 'Log counts per month', showlegend=True))
+        fig.update_layout(
+            title="Number of Test over time by Station",
+            xaxis_title="Timestamp",
+            yaxis_title="Log counts per month",
+            hovermode="closest",
+            xaxis_rangeslider_visible=False,
+            legend=dict(
+                title="Tests",  # Title for the legend
+                x=0.5,           # Center the legend horizontally
+                y=1.1,         # Position the legend below the plot
+                xanchor="center",  # Anchor the x position at the center
+                yanchor="bottom",     # Anchor the y position at the top
+                traceorder="normal",  # Order the traces in the legend normally
+                font=dict(size=12),   # Font size for legend items
+            )
+        )
+        st.plotly_chart(fig)
+        # st.line_chart(time_logs, x="timestamp", y="log_counts_per_hour")
 
         month_group, month_label = st.columns(2)
 
@@ -757,74 +1111,247 @@ with Dashboard:
                 "timestamp": data["dates"],
                 **group_time_json
             })
-            st.line_chart(time_groups, x="timestamp", y=data["group_counts_per_month"]["_group_index"])
+            fig = go.Figure()
+            for group in group_time_json:
+                if group != "_group_index":  # Avoid plotting the '_group_index'
+                    fig.add_trace(go.Scatter(x=time_groups['timestamp'], y=time_groups[group], mode='lines', name=group, showlegend=True))
+            fig.update_layout(
+                title="Number of Groups over Time",
+                xaxis_title="Timestamp",
+                yaxis_title="Group Counts Per Month",
+                hovermode="closest",
+                xaxis_rangeslider_visible=False,
+                legend=dict(
+                    title="Groups",  # Title for the legend
+                    x=0.5,           # Center the legend horizontally
+                    y=1.1,         # Position the legend below the plot
+                    xanchor="center",  # Anchor the x position at the center
+                    yanchor="bottom",     # Anchor the y position at the top
+                    traceorder="normal",  # Order the traces in the legend normally
+                    font=dict(size=12),   # Font size for legend items
+                )
+            )
+            st.plotly_chart(fig)
 
         with month_label:
             st.header("Number of Labels over Time")
             label_time_json = data["label_counts_per_month"].copy()
             del label_time_json["_label_index"]
-            time_groups = pd.DataFrame({
+            time_labels = pd.DataFrame({
                 "timestamp": data["dates"],
                 **label_time_json
             })
-            st.line_chart(time_groups, x="timestamp", y=data["label_counts_per_month"]["_label_index"])
+            fig = go.Figure()
+            for label in label_time_json:
+                if label != "_label_index":  # Avoid plotting the '_group_index'
+                    fig.add_trace(go.Scatter(x=time_labels['timestamp'], y=time_labels[label], mode='lines', name=label, showlegend=True))
+            fig.update_layout(
+                title="Number of Labels over Time",
+                xaxis_title="Timestamp",
+                yaxis_title="Label Counts Per Month",
+                hovermode="closest",
+                xaxis_rangeslider_visible=False,
+                legend=dict(
+                    title="Labels",  # Title for the legend
+                    x=0.5,           # Center the legend horizontally
+                    y=1.1,         # Position the legend below the plot
+                    xanchor="center",  # Anchor the x position at the center
+                    yanchor="bottom",     # Anchor the y position at the top
+                    traceorder="normal",  # Order the traces in the legend normally
+                    font=dict(size=12),   # Font size for legend items
+                )
+            )
+            st.plotly_chart(fig)
 
         month_repo, month_method = st.columns(2)
 
         with month_repo:
             st.header("Number of Repos over Time")
-            group_time_json = data["repo_counts_per_month"].copy()
-            del group_time_json["repo_index"]
-            time_groups = pd.DataFrame({
+            # print(data["group_counts_per_hour"])
+            # print("1q1q1q1q1", data["group_counts_per_hour"])
+            repo_time_json = data["repo_counts_per_month"].copy()
+            del repo_time_json["repo_index"]
+            time_repos = pd.DataFrame({
                 "timestamp": data["dates"],
-                **group_time_json
+                **repo_time_json
             })
             repository_index = data["repo_counts_per_month"]["repo_index"]
-            if None in repository_index:
-                # If there's a None, display a default "null repo" value for y-axis
-                st.line_chart(time_groups, x="timestamp", y=["null"])
-            else:
-                st.line_chart(time_groups, x="timestamp", y=repository_index)
+            fig = go.Figure()
+
+            # Add a trace for each repository
+            for repo in repository_index:
+                if repo is None:
+                    fig.add_trace(go.Scatter(
+                        x=time_repos['timestamp'],
+                        y=[0] * len(time_repos),  # Replace None with zero or a default value
+                        mode='lines',
+                        name="null repo",  # Label the trace as "null repo" in the legend
+                        showlegend=True
+                    ))
+                else:
+                    fig.add_trace(go.Scatter(
+                        x=time_repos['timestamp'],
+                        y=time_repos[repo],  # Use the repository's count values
+                        mode='lines',
+                        name=repo,  # Use the repository name in the legend
+                        showlegend=True
+                    ))
+
+            # Customize the layout
+            fig.update_layout(
+                title="Number of Repos over Time",
+                xaxis_title="Timestamp",
+                yaxis_title="Repo Counts Per Month",
+                hovermode="closest",
+                xaxis_rangeslider_visible=False,  # Adds a range slider for zoom functionality
+                legend=dict(
+                    title="Repositories",  # Title for the legend
+                    x=0.5,                # Center the legend horizontally
+                    y=1.1,                # Position the legend above the plot
+                    xanchor='center',     # Ensure the legend is centered horizontally
+                    yanchor='bottom',     # Position the legend at the top
+                    traceorder="normal",  # Order the traces in the legend normally
+                    font=dict(size=12),   # Font size for legend items
+                )
+            )
+
+            # Display the plot in Streamlit using Plotly
+            st.plotly_chart(fig)
 
         with month_method:
             st.header("Number of Methods over Time")
-            # print(data["group_counts_per_hour"])
-            # print("1q1q1q1q1", data["group_counts_per_hour"])
-            group_time_json = data["method_counts_per_month"].copy()
-            del group_time_json["method_index"]
-            time_groups = pd.DataFrame({
+            methods_time_json = data["method_counts_per_month"].copy()
+            del methods_time_json["method_index"]
+            time_methods = pd.DataFrame({
                 "timestamp": data["dates"],
-                **group_time_json
+                **methods_time_json
             })
-            st.line_chart(time_groups, x="timestamp", y=data["method_counts_per_month"]["method_index"])
+            method_index = data["method_counts_per_month"]["method_index"]
+            # Create the Plotly figure
+            fig = go.Figure()
+            # Add a trace for each method
+            for method in method_index:
+                fig.add_trace(go.Scatter(
+                    x=time_methods['timestamp'],
+                    y=time_methods[method],  # Use the method count values for each method
+                    mode='lines',
+                    name=method,  # Use the method name in the legend
+                    showlegend=True
+                ))
+            # Customize the layout for better readability and style
+            fig.update_layout(
+                title="Number of Methods over Time",
+                xaxis_title="Timestamp",
+                yaxis_title="Method Count Per Month",
+                showlegend=True,  # Display the legend
+                legend=dict(
+                    title="Methods",  # Title for the legend
+                    x=0.5,                # Center the legend horizontally
+                    y=1.1,                # Position the legend above the plot
+                    xanchor='center',     # Ensure the legend is centered horizontally
+                    yanchor='bottom',     # Position the legend at the top
+                    traceorder="normal",  # Order the traces in the legend normally
+                    font=dict(size=12),   # Font size for legend items
+                )
+            )
+            # Display the plotly chart in Streamlit
+            st.plotly_chart(fig)
 
         st.header("Number of Modules over Time")
-        # print(data["group_counts_per_hour"])
-        # print("1q1q1q1q1", data["group_counts_per_hour"])
-        group_time_json = data["module_counts_per_month"].copy()
-        del group_time_json["module_index"]
-        time_groups = pd.DataFrame({
+        module_time_json = data["module_counts_per_month"].copy()
+        del module_time_json["module_index"]
+        time_modules = pd.DataFrame({
             "timestamp": data["dates"],
-            **group_time_json
+            **module_time_json
         })
-        st.line_chart(time_groups, x="timestamp", y=data["module_counts_per_month"]["module_index"])
+        module_index = data["module_counts_per_month"]["module_index"]
+
+        # Create the Plotly figure
+        fig = go.Figure()
+
+        # Add a trace for each module
+        for module in module_index:
+            fig.add_trace(go.Scatter(
+                x=time_modules['timestamp'],
+                y=time_modules[module],  # Use the module count values for each module
+                mode='lines',
+                name=module,  # Use the module name in the legend
+                showlegend=True
+            ))
+
+        # Customize the layout for better readability and style
+        fig.update_layout(
+            title="Number of Modules over Time",
+            xaxis_title="Timestamp",
+            yaxis_title="Module Count Per Month",
+            showlegend=True,  # Display the legend
+            legend=dict(
+                    title="Modules",  # Title for the legend
+                    x=0.5,                # Center the legend horizontally
+                    y=1.1,                # Position the legend above the plot
+                    xanchor='center',     # Ensure the legend is centered horizontally
+                    yanchor='bottom',     # Position the legend at the top
+                    traceorder="normal",  # Order the traces in the legend normally
+                    font=dict(size=12),   # Font size for legend items
+                )
+        )
+
+        # Display the plotly chart in Streamlit
+        st.plotly_chart(fig)
 
 with Metrics_Calculation_API:
     # Metrics Tab
     # Function to get metrics for the selected station
     @st.cache_data(ttl=60)  # Cache for 1 minute
-    def get_station_metrics(station):
-        """Get metrics for the selected station"""
+    def get_station_metrics(station, group=None, label=None, repo=None, module=None):
+        """Get metrics for the selected station with optional filters"""
         try:
             client = pymongo.MongoClient(CONNECTION_STRING)
             db = client[DATABASE_NAME]
             metrics_col = db[METRICS_COLLECTION]
             
-            # Get most recent metrics document for this station
+            # Build query based on filters
+            query = None
+            
+            # Check for dimension-specific data first (group, label, repo, module)
+            if group:
+                query = {"station": station, "group": group, "has_dimension_data": True}
+            elif label:
+                query = {"station": station, "label": label, "has_dimension_data": True}
+            elif repo:
+                query = {"station": station, "repo": repo, "has_dimension_data": True}
+            elif module:
+                query = {"station": station, "module": module, "has_dimension_data": True}
+            else:
+                # No dimension filters, get station-level metrics
+                query = {"station": station}
+            
+            # Get the metrics document
             metrics_doc = metrics_col.find_one(
-                {"station": station},
+                query,
                 sort=[("timestamp", -1)]
             )
+            
+            # If no dimension-specific metrics found but dimension filter was applied, fall back to station-level metrics
+            if not metrics_doc and any([group, label, repo, module]):
+                fallback_query = {"station": station, "has_dimension_data": {"$exists": False}}
+                metrics_doc = metrics_col.find_one(
+                    fallback_query,
+                    sort=[("timestamp", -1)]
+                )
+            
+            # If still no metrics found and this might be an individual station from a group, 
+            # try looking for metrics with is_split_station flag
+            if not metrics_doc:
+                split_query = {"station": station, "is_split_station": True}
+                metrics_doc = metrics_col.find_one(
+                    split_query,
+                    sort=[("timestamp", -1)]
+                )
+                
+                # If found, add an indicator that this is from a split station
+                if metrics_doc:
+                    metrics_doc["from_split"] = True
             
             client.close()
             
@@ -841,13 +1368,57 @@ with Metrics_Calculation_API:
                 elif isinstance(value, datetime):
                     metrics[key] = str(value)
             
+            # Handle missing data
+            if metrics.get("missing_data", False):
+                # Set reasonable defaults for missing values to prevent UI errors
+                # But maintain the "missing_data" flag so UI can indicate this properly
+                if metrics.get("utilization_rate") is None:
+                    metrics["utilization_rate"] = 0
+                
+                if metrics.get("downtime_percentage") is None:
+                    metrics["downtime_percentage"] = 0
+                
+                if metrics.get("mtbf_hours") is None:
+                    metrics["mtbf_hours"] = 0
+                
+                if metrics.get("mttr_hours") is None:
+                    metrics["mttr_hours"] = 0
+                
+                if metrics.get("avg_test_duration_minutes") is None:
+                    metrics["avg_test_duration_minutes"] = 0
+            
             return metrics
         except Exception as e:
             st.error(f"Error getting metrics: {e}")
             return {}
 
+    @st.cache_data(ttl=60)
+    def get_group_metrics(station):
+        """Get metrics broken down by groups for the selected station"""
+        try:
+            metrics = get_station_metrics(station)
+            return metrics.get("group_metrics", {})
+        except Exception as e:
+            st.error(f"Error getting group metrics: {e}")
+            return {}
+
     # Get metrics for the selected station
-    metrics = get_station_metrics(st.session_state.selected_station)
+    metrics = get_station_metrics(
+        st.session_state.selected_station,
+        group=st.session_state.selected_group,
+        label=st.session_state.selected_label,
+        repo=st.session_state.selected_repo,
+        module=st.session_state.selected_module
+    )
+
+    group_metrics = None
+    if st.session_state.selected_station and not any([
+        st.session_state.selected_group, 
+        st.session_state.selected_label,
+        st.session_state.selected_repo,
+        st.session_state.selected_module
+    ]):
+        group_metrics = get_group_metrics(st.session_state.selected_station)
 
     # Display refresh button
     if st.button("🔄 Refresh Data"):
@@ -856,115 +1427,300 @@ with Metrics_Calculation_API:
 
     # Show metrics dashboard if metrics exist
     if metrics:
-        st.success(f"Showing metrics for {st.session_state.selected_station}")
+        success_msg = f"Showing metrics for {st.session_state.selected_station}"
         
+        if st.session_state.selected_group:
+            success_msg += f" → Group: {st.session_state.selected_group}"
+        
+        if st.session_state.selected_label:
+            success_msg += f" → Label: {st.session_state.selected_label}"
+        
+        if st.session_state.selected_repo:
+            success_msg += f" → Repository: {st.session_state.selected_repo}"
+            
+        if st.session_state.selected_module:
+            success_msg += f" → Module: {st.session_state.selected_module}"
+        
+        # Check if we're showing dimension-specific metrics
+        if metrics.get("has_dimension_data", False):
+            success_msg += " (Using dimension-specific metrics)"
+        
+        st.success(success_msg)
+
         # Create metrics dashboard
         col1, col2 = st.columns(2)
         
         with col1:
-            st.subheader("1. Equipment Utilization Metrics")
+            st.markdown('<div class="section-header">1. Equipment Utilization Metrics</div>', unsafe_allow_html=True)
             
-            # Utilization Rate card
-            utilization = float(metrics.get('utilization_rate', 0))
-            utilization_color = "#4CAF50" if utilization >= 70 else "#FFC107" if utilization >= 50 else "#F44336"
+            # Utilization Rate card with gauge chart
+            st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+            st.markdown('<div class="metric-title">Utilization Rate (%)</div>', unsafe_allow_html=True)
+            st.markdown('<div class="metric-formula">(Actual Usage Time / Total Available Time) × 100</div>', unsafe_allow_html=True)
             
-            st.markdown(f"""
-            <div style="background-color:white; padding:20px; border-radius:5px; margin-bottom:10px;">
-                <h4>Utilization Rate (%)</h4>
-                <div style="font-size:28px; font-weight:bold; color:{utilization_color};">{utilization:.1f}%</div>
-                <div style="font-size:12px; color:#666;">
-                    (Actual Usage Time / Total Available Time) × 100
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+            # Get utilization rate safely
+            utilization_data = safe_get_metric(metrics, 'utilization_rate', 0)
+            utilization = utilization_data["value"]
+            is_missing = utilization_data["is_missing"]
+            
+            # Create gauge chart for utilization rate
+            util_fig = create_gauge_chart(
+                value=utilization,
+                title="Equipment Utilization",
+                good_threshold=75,
+                warning_threshold=50,
+                is_missing=is_missing
+            )
+            st.plotly_chart(util_fig, use_container_width=True)
+            
+            # Display utilization by groups if available
+            if group_metrics and len(group_metrics) > 0:
+                st.markdown("<b>Utilization by Group:</b>", unsafe_allow_html=True)
+                
+                # Check if we have any groups with utilization values
+                has_util_data = any(group_data.get("utilization") is not None for group_data in group_metrics.values())
+                
+                if has_util_data:
+                    # Define safe sort key
+                    def util_sort_key(item):
+                        util = item[1].get("utilization")
+                        return util if util is not None else -1  # Put None values at the end
+                    
+                    # Sort groups by utilization
+                    sorted_groups = sorted(group_metrics.items(), key=util_sort_key, reverse=True)
+                    
+                    # Display top 5 groups
+                    for group, group_data in sorted_groups[:5]:
+                        util_value = group_data.get("utilization")
+                        if util_value is not None:
+                            # Add color indicators based on value
+                            if util_value >= 75:
+                                indicator = '<span class="good-indicator">■</span>'
+                            elif util_value >= 50:
+                                indicator = '<span class="warning-indicator">■</span>'
+                            else:
+                                indicator = '<span class="danger-indicator">■</span>'
+                            
+                            st.markdown(f"- {indicator} {group}: {util_value:.1f}%", unsafe_allow_html=True)
+                    
+                    # Show count message if there are more
+                    if len(sorted_groups) > 5:
+                        st.markdown(f"<i>and {len(sorted_groups) - 5} more groups...</i>", unsafe_allow_html=True)
+                else:
+                    st.markdown("<i>No utilization data available for groups</i>", unsafe_allow_html=True)
+            
+            st.markdown('</div>', unsafe_allow_html=True)
             
             # Downtime card
-            downtime = float(metrics.get('downtime_percentage', 0))
-            downtime_color = "#4CAF50" if downtime <= 10 else "#FFC107" if downtime <= 20 else "#F44336"
+            st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+            st.markdown('<div class="metric-title">Downtime (%)</div>', unsafe_allow_html=True)
+            st.markdown('<div class="metric-formula">(Downtime Hours / Total Available Hours) × 100</div>', unsafe_allow_html=True)
             
-            st.markdown(f"""
-            <div style="background-color:white; padding:20px; border-radius:5px; margin-bottom:10px;">
-                <h4>Downtime (%)</h4>
-                <div style="font-size:28px; font-weight:bold; color:{downtime_color};">{downtime:.1f}%</div>
-                <div style="font-size:12px; color:#666;">
-                    (Downtime Hours / Total Available Hours) × 100
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+            # Get downtime percentage safely
+            downtime_data = safe_get_metric(metrics, 'downtime_percentage', 0)
+            downtime = downtime_data["value"]
+            is_missing = downtime_data["is_missing"]
             
-            # Test Execution Metrics
-            st.subheader("2. Test Execution Metrics")
+            # Create gauge chart for downtime
+            downtime_fig = create_gauge_chart(
+                value=downtime,
+                title="Equipment Downtime",
+                good_threshold=5,  # Lower is better for downtime
+                warning_threshold=15,
+                is_missing=is_missing
+            )
+            st.plotly_chart(downtime_fig, use_container_width=True)
+            
+            # Show downtime by station if available
+            if not is_missing:
+                st.markdown(f"<b>Current Downtime:</b> {downtime:.1f}%", unsafe_allow_html=True)
+            
+            st.markdown('</div>', unsafe_allow_html=True)
+            
+             # Test Execution Metrics
+            st.markdown('<div class="section-header">2. Test Execution Metrics</div>', unsafe_allow_html=True)
             
             # Tests Per Day
-            tests_per_day = float(metrics.get('tests_per_day', 0))
+            st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+            st.markdown('<div class="metric-title">Tests Per Equipment Per Day</div>', unsafe_allow_html=True)
+            st.markdown('<div class="metric-formula">Total Tests / (Equipment Units × Days)</div>', unsafe_allow_html=True)
             
-            st.markdown(f"""
-            <div style="background-color:white; padding:20px; border-radius:5px; margin-bottom:10px;">
-                <h4>Tests Per Equipment Per Day</h4>
-                <div style="font-size:28px; font-weight:bold;">{tests_per_day:.1f}</div>
-                <div style="font-size:12px; color:#666;">
-                    Total Tests / (Equipment Units × Days)
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+            # Get tests per day safely
+            tests_per_day_data = safe_get_metric(metrics, 'tests_per_day', 0)
+            tests_per_day = tests_per_day_data["value"]
+            is_missing = tests_per_day_data["is_missing"]
+            
+            if is_missing:
+                st.markdown('<div class="metric-value missing-data">No Data</div>', unsafe_allow_html=True)
+            else:
+                st.markdown(f'<div class="metric-value">{tests_per_day:.1f}</div>', unsafe_allow_html=True)
+            
+            # Show tests by group if available
+            if group_metrics and len(group_metrics) > 0:
+                st.markdown("<b>Test Counts by Group:</b>", unsafe_allow_html=True)
+                
+                # Define safe sort key for count
+                def count_sort_key(item):
+                    count = item[1].get("count")
+                    return count if count is not None else -1
+                
+                # Sort groups by count
+                sorted_by_count = sorted(group_metrics.items(), key=count_sort_key, reverse=True)
+                
+                # Display top 5 groups
+                for group, group_data in sorted_by_count[:5]:
+                    if group_data.get("count") is not None:
+                        st.markdown(f"- {group}: {group_data['count']} tests", unsafe_allow_html=True)
+                
+                # Show count message if there are more
+                if len(sorted_by_count) > 5:
+                    st.markdown(f"<i>and {len(sorted_by_count) - 5} more groups...</i>", unsafe_allow_html=True)
+            
+            st.markdown('</div>', unsafe_allow_html=True)
             
             # Average Test Duration
-            avg_duration = float(metrics.get('avg_test_duration_minutes', metrics.get('avg_test_duration', 3.5)))
+            st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+            st.markdown('<div class="metric-title">Average Test Duration</div>', unsafe_allow_html=True)
+            st.markdown('<div class="metric-formula">Total Test Time / Total Tests Conducted</div>', unsafe_allow_html=True)
             
-            st.markdown(f"""
-            <div style="background-color:white; padding:20px; border-radius:5px; margin-bottom:10px;">
-                <h4>Average Test Duration</h4>
-                <div style="font-size:28px; font-weight:bold;">{avg_duration:.1f} minutes</div>
-                <div style="font-size:12px; color:#666;">
-                    Total Test Time / Total Tests Conducted
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+            # Get average test duration safely
+            avg_duration_data = safe_get_metric(metrics, 'avg_test_duration_minutes', 0)
+            avg_duration = avg_duration_data["value"]
+            is_missing = avg_duration_data["is_missing"]
+            
+            if is_missing:
+                st.markdown('<div class="metric-value missing-data">No Data</div>', unsafe_allow_html=True)
+            else:
+                st.markdown(f'<div class="metric-value">{avg_duration:.2f} min</div>', unsafe_allow_html=True)
+            
+            # Show duration by group if available
+            if group_metrics and len(group_metrics) > 0:
+                st.markdown("<b>Test Duration by Group:</b>", unsafe_allow_html=True)
+                
+                # Check if we have any groups with avg_duration values
+                has_duration_data = any(group_data.get("avg_duration") is not None for group_data in group_metrics.values())
+                
+                if has_duration_data:
+                    # Define safe sort key for duration
+                    def duration_sort_key(item):
+                        duration = item[1].get("avg_duration")
+                        return duration if duration is not None else -1
+                    
+                    # Sort groups by duration
+                    sorted_by_duration = sorted(group_metrics.items(), key=duration_sort_key, reverse=True)
+                    
+                    # Display top 5 groups
+                    for group, group_data in sorted_by_duration[:5]:
+                        duration = group_data.get("avg_duration")
+                        if duration is not None:
+                            st.markdown(f"- {group}: {duration:.2f} min", unsafe_allow_html=True)
+                    
+                    # Show count message if there are more
+                    if len(sorted_by_duration) > 5:
+                        st.markdown(f"<i>and {len(sorted_by_duration) - 5} more groups...</i>", unsafe_allow_html=True)
+                else:
+                    st.markdown("<i>No duration data available for groups</i>", unsafe_allow_html=True)
+            
+            st.markdown('</div>', unsafe_allow_html=True)
         
         with col2:
-            st.subheader("3. Maintenance & Calibration Metrics")
+            st.markdown('<div class="section-header">3. Maintenance & Calibration Metrics</div>', unsafe_allow_html=True)
             
             # MTBF
-            mtbf = float(metrics.get('mtbf_hours', metrics.get('mtbf', 0)))
-            mtbf_color = "#4CAF50" if mtbf >= 500 else "#FFC107" if mtbf >= 200 else "#F44336"
+            st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+            st.markdown('<div class="metric-title">Mean Time Between Failures (MTBF)</div>', unsafe_allow_html=True)
+            st.markdown('<div class="metric-formula">Total Operating Time / Number of Failures</div>', unsafe_allow_html=True)
             
-            st.markdown(f"""
-            <div style="background-color:white; padding:20px; border-radius:5px; margin-bottom:10px;">
-                <h4>Mean Time Between Failures (MTBF)</h4>
-                <div style="font-size:28px; font-weight:bold; color:{mtbf_color};">{mtbf:.1f} hours</div>
-                <div style="font-size:12px; color:#666;">
-                    Total Operating Time / Number of Failures
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+            # Get MTBF safely
+            mtbf_data = safe_get_metric(metrics, 'mtbf_hours', 0)
+            mtbf = mtbf_data["value"]
+            is_missing = mtbf_data["is_missing"]
+            
+            if is_missing:
+                # Create gauge with missing data indicator
+                mtbf_fig = create_gauge_chart(
+                    value=0,
+                    title="MTBF (hours)",
+                    good_threshold=75,
+                    warning_threshold=40,
+                    is_missing=True
+                )
+                st.plotly_chart(mtbf_fig, use_container_width=True)
+            else:
+                # Create mtbf display that shows the actual value and the gauge scaled to 0-100%
+                scaled_mtbf = min(100, mtbf/10)  # Scale to percentage (max 1000 hours = 100%)
+                
+                # Create gauge for MTBF (higher is better)
+                mtbf_fig = create_gauge_chart(
+                    value=scaled_mtbf,
+                    title=f"MTBF: {mtbf:.1f} hours",
+                    good_threshold=75,
+                    warning_threshold=40
+                )
+                st.plotly_chart(mtbf_fig, use_container_width=True)
+            
+            st.markdown('<div class="info-text">Higher values indicate better equipment reliability.</div>', unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
             
             # MTTR
-            mttr = float(metrics.get('mttr_hours', metrics.get('mttr', 4.5)))
-            mttr_color = "#4CAF50" if mttr <= 3 else "#FFC107" if mttr <= 6 else "#F44336"
+            st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+            st.markdown('<div class="metric-title">Mean Time To Repair (MTTR)</div>', unsafe_allow_html=True)
+            st.markdown('<div class="metric-formula">Total Repair Time / Number of Repairs</div>', unsafe_allow_html=True)
             
-            st.markdown(f"""
-            <div style="background-color:white; padding:20px; border-radius:5px; margin-bottom:10px;">
-                <h4>Mean Time To Repair (MTTR)</h4>
-                <div style="font-size:28px; font-weight:bold; color:{mttr_color};">{mttr:.1f} hours</div>
-                <div style="font-size:12px; color:#666;">
-                    Total Repair Time / Number of Repairs
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+            # Get MTTR safely
+            mttr_data = safe_get_metric(metrics, 'mttr_hours', 0)
+            mttr = mttr_data["value"]
+            is_missing = mttr_data["is_missing"]
+            
+            if is_missing:
+                # Create gauge with missing data indicator
+                mttr_fig = create_gauge_chart(
+                    value=0,
+                    title="MTTR (hours)",
+                    good_threshold=75,
+                    warning_threshold=40,
+                    is_missing=True
+                )
+                st.plotly_chart(mttr_fig, use_container_width=True)
+            else:
+                # Scale for gauge - lower is better, so we invert the scale
+                # MTTR of 0 = 100%, MTTR of 10+ = 0%
+                scaled_mttr = max(0, 100 - (mttr * 10))
+                
+                # Create gauge for MTTR (lower is better)
+                mttr_fig = create_gauge_chart(
+                    value=scaled_mttr,
+                    title=f"MTTR: {mttr:.1f} hours",
+                    good_threshold=75,  # Higher on gauge = lower actual MTTR
+                    warning_threshold=40
+                )
+                st.plotly_chart(mttr_fig, use_container_width=True)
+            
+            st.markdown('<div class="info-text">Lower values indicate faster repair times.</div>', unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
             
             # Calibration Compliance
-            calibration = float(metrics.get('calibration_compliance', 92.8))
-            calibration_color = "#4CAF50" if calibration >= 90 else "#FFC107" if calibration >= 80 else "#F44336"
+            st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+            st.markdown('<div class="metric-title">Calibration Compliance Rate (%)</div>', unsafe_allow_html=True)
+            st.markdown('<div class="metric-formula">(Calibrated Equipment on Time / Total Due for Calibration) × 100</div>', unsafe_allow_html=True)
             
-            st.markdown(f"""
-            <div style="background-color:white; padding:20px; border-radius:5px; margin-bottom:10px;">
-                <h4>Calibration Compliance Rate (%)</h4>
-                <div style="font-size:28px; font-weight:bold; color:{calibration_color};">{calibration:.1f}%</div>
-                <div style="font-size:12px; color:#666;">
-                    (Calibrated Equipment on Time / Total Due for Calibration) × 100
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+            # Get calibration compliance safely
+            cal_data = safe_get_metric(metrics, 'calibration_compliance', 0)
+            calibration = cal_data["value"]
+            is_missing = cal_data["is_missing"]
+            
+            # Create gauge for Calibration Compliance
+            cal_fig = create_gauge_chart(
+                value=calibration,
+                title="Calibration Compliance",
+                good_threshold=90,
+                warning_threshold=80,
+                is_missing=is_missing
+            )
+            st.plotly_chart(cal_fig, use_container_width=True)
+            
+            st.markdown('<div class="info-text">Higher values indicate better compliance with calibration schedules.</div>', unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
         
         # Second row
         col1, col2 = st.columns(2)
