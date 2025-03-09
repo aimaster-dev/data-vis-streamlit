@@ -1726,8 +1726,7 @@ with Metrics_Calculation_API:
         col1, col2 = st.columns(2)
         
         with col1:
-            st.subheader("4. Cost & Efficiency Metrics")
-            
+            st.markdown('<div class="section-header">4. Cost & Efficiency Metrics</div>', unsafe_allow_html=True)
             # Cost Per Test
             cost = float(metrics.get('estimated_cost_per_test', metrics.get('cost_per_test', 12.75)))
             
@@ -1755,48 +1754,64 @@ with Metrics_Calculation_API:
             """, unsafe_allow_html=True)
             
             # Depreciation Rate
-            depreciation = float(metrics.get('equipment_depreciation_rate', metrics.get('depreciation_rate', 15.3)))
+            # depreciation = float(metrics.get('equipment_depreciation_rate', metrics.get('depreciation_rate', 15.3)))
+
+            st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+            st.markdown('<div class="metric-title">Equipment Depreciation Rate (%)</div>', unsafe_allow_html=True)
+            st.markdown('<div class="metric-formula">(Initial Value - Current Value / Initial Value) × 100</div>', unsafe_allow_html=True)
+
+            depreciation_data = safe_get_metric(metrics, 'equipment_depreciation_rate', 0)
+            depreciation = depreciation_data["value"]
+            is_missing = depreciation_data["is_missing"]
             
-            st.markdown(f"""
-            <div style="background-color:white; padding:20px; border-radius:5px; margin-bottom:10px;">
-                <h4>Equipment Depreciation Rate (%)</h4>
-                <div style="font-size:28px; font-weight:bold;">{depreciation:.1f}%</div>
-                <div style="font-size:12px; color:#666;">
-                    ((Initial Value - Current Value) / Initial Value) × 100
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+            # Create gauge for Calibration Compliance
+            cal_fig = create_gauge_chart(
+                value=depreciation,
+                title="Equipment Depreciation Rate",
+                good_threshold=1,
+                warning_threshold=20,
+                is_missing=is_missing
+            )
+            st.plotly_chart(cal_fig, use_container_width=True)
         
         with col2:
-            st.subheader("5. Availability & Scheduling Metrics")
-            
-            # Equipment Availability
+            st.markdown('<div class="section-header">5. Availability & Scheduling Metrics</div>', unsafe_allow_html=True)
+            # Utilization Rate card with gauge chart
+            st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+            st.markdown('<div class="metric-title">Equipment Availability (%)</div>', unsafe_allow_html=True)
+            st.markdown('<div class="metric-formula">(Total Available Hours - Downtime Hours / Total Available Hours) × 100</div>', unsafe_allow_html=True)
             availability = 100 - downtime
-            availability_color = "#4CAF50" if availability >= 90 else "#FFC107" if availability >= 80 else "#F44336"
+            # Get utilization rate safely
+            utilization_data = safe_get_metric(metrics, 'utilization_rate', 0)
+            utilization = utilization_data["value"]
+            is_missing = utilization_data["is_missing"]
             
-            st.markdown(f"""
-            <div style="background-color:white; padding:20px; border-radius:5px; margin-bottom:10px;">
-                <h4>Equipment Availability (%)</h4>
-                <div style="font-size:28px; font-weight:bold; color:{availability_color};">{availability:.1f}%</div>
-                <div style="font-size:12px; color:#666;">
-                    ((Total Available Hours - Downtime Hours) / Total Available Hours) × 100
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+            # Create gauge chart for utilization rate
+            util_fig = create_gauge_chart(
+                value=utilization,
+                title="Equipment Availability",
+                good_threshold=75,
+                warning_threshold=50,
+                is_missing=is_missing
+            )
+            st.plotly_chart(util_fig, use_container_width=True)
             
             # Booking vs Usage Discrepancy
-            booking_discrepancy = float(metrics.get('booking_discrepancy', 15.3))
-            booking_color = "#4CAF50" if booking_discrepancy <= 10 else "#FFC107" if booking_discrepancy <= 20 else "#F44336"
-            
-            st.markdown(f"""
-            <div style="background-color:white; padding:20px; border-radius:5px; margin-bottom:10px;">
-                <h4>Booking vs. Usage Discrepancy (%)</h4>
-                <div style="font-size:28px; font-weight:bold; color:{booking_color};">{booking_discrepancy:.1f}%</div>
-                <div style="font-size:12px; color:#666;">
-                    (Scheduled Time - Actual Used Time) / Scheduled Time × 100
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+            st.markdown('<div class="metric-card">', unsafe_allow_html=True)
+            st.markdown('<div class="metric-title">Booking vs Usage Discrepancy (%)</div>', unsafe_allow_html=True)
+            st.markdown('<div class="metric-formula">(Scheduled Time - Actual Used Time) / Scheduled Time × 100</div>', unsafe_allow_html=True)
+
+            booking_discrepancy_data = safe_get_metric(metrics, 'booking_discrepancy', 15.3)
+            booking_discrepancy = booking_discrepancy_data["value"]
+            is_missing = booking_discrepancy_data["is_missing"]
+            util_fig = create_gauge_chart(
+                value=booking_discrepancy,
+                title="Booking Discrepancy",
+                good_threshold=10,
+                warning_threshold=15,
+                is_missing=is_missing
+            )
+            st.plotly_chart(util_fig, use_container_width=True)
         
         # Additional metrics section
         st.subheader("Additional Station Metrics")
