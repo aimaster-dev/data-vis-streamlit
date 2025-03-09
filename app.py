@@ -141,37 +141,70 @@ def create_gauge_chart(value, title, min_val=0, max_val=100, good_threshold=75, 
         title = f"{title} (No Data)"
     else:
         # Determine color based on thresholds
-        if value >= good_threshold:
-            color = "#4CAF50"  # Good - Green
-        elif value >= warning_threshold:
-            color = "#FFC107"  # Warning - Yellow/Amber
-        else:
-            color = "#F44336"  # Danger - Red
+        if good_threshold > warning_threshold:
+            if value >= good_threshold:
+                color = "#4CAF50"  # Good - Green
+            elif value >= warning_threshold:
+                color = "#FFC107"  # Warning - Yellow/Amber
+            else:
+                color = "#F44336"  # Danger - Red
+        elif good_threshold <= warning_threshold:
+            if value < good_threshold:
+                color = "#4CAF50"  # Good - Green
+            elif value <= warning_threshold:
+                color = "#FFC107"  # Warning - Yellow/Amber
+            else:
+                color = "#F44336"  # Danger - Red
     
     # Create the gauge chart
-    fig = go.Figure(go.Indicator(
-        mode="gauge+number",
-        value=value,
-        title={'text': title, 'font': {'size': 14, 'color': '#666'}},
-        number={'suffix': "%", 'font': {'size': 20, 'color': '#1E3A8A'}},
-        gauge={
-            'axis': {'range': [min_val, max_val], 'tickwidth': 1, 'tickcolor': "#666"},
-            'bar': {'color': color},
-            'bgcolor': "white",
-            'borderwidth': 2,
-            'bordercolor': "#DDDDDD",
-            'steps': [
-                {'range': [min_val, warning_threshold], 'color': '#FFECB3'},
-                {'range': [warning_threshold, good_threshold], 'color': '#E6EE9C'},
-                {'range': [good_threshold, max_val], 'color': '#C8E6C9'}
-            ],
-            'threshold': {
-                'line': {'color': "black", 'width': 2},
-                'thickness': 0.75,
-                'value': value
+    if good_threshold > warning_threshold:
+        fig = go.Figure(go.Indicator(
+            mode="gauge+number",
+            value=value,
+            title={'text': title, 'font': {'size': 14, 'color': '#666'}},
+            number={'suffix': "%", 'font': {'size': 20, 'color': '#1E3A8A'}},
+            gauge={
+                'axis': {'range': [min_val, max_val], 'tickwidth': 1, 'tickcolor': "#666"},
+                'bar': {'color': color},
+                'bgcolor': "white",
+                'borderwidth': 2,
+                'bordercolor': "#DDDDDD",
+                'steps': [
+                    {'range': [min_val, warning_threshold], 'color': '#FFECB3'},
+                    {'range': [warning_threshold, good_threshold], 'color': '#E6EE9C'},
+                    {'range': [good_threshold, max_val], 'color': '#C8E6C9'}
+                ],
+                'threshold': {
+                    'line': {'color': "black", 'width': 2},
+                    'thickness': 0.75,
+                    'value': value
+                }
             }
-        }
-    ))
+        ))
+    else:
+        fig = go.Figure(go.Indicator(
+            mode="gauge+number",
+            value=value,
+            title={'text': title, 'font': {'size': 14, 'color': '#666'}},
+            number={'suffix': "%", 'font': {'size': 20, 'color': '#1E3A8A'}},
+            gauge={
+                'axis': {'range': [min_val, max_val], 'tickwidth': 1, 'tickcolor': "#666"},
+                'bar': {'color': color},
+                'bgcolor': "white",
+                'borderwidth': 2,
+                'bordercolor': "#DDDDDD",
+                'steps': [
+                    {'range': [min_val, good_threshold], 'color': '#C8E6C9'},
+                    {'range': [good_threshold, warning_threshold], 'color': '#E6EE9C'},
+                    {'range': [warning_threshold, max_val], 'color': '#FFECB3'}
+                ],
+                'threshold': {
+                    'line': {'color': "black", 'width': 2},
+                    'thickness': 0.75,
+                    'value': value
+                }
+            }
+        ))
     
     # Update layout
     fig.update_layout(
@@ -1525,8 +1558,8 @@ with Metrics_Calculation_API:
             downtime_fig = create_gauge_chart(
                 value=downtime,
                 title="Equipment Downtime",
-                good_threshold=5,  # Lower is better for downtime
-                warning_threshold=15,
+                good_threshold=10,  # Lower is better for downtime
+                warning_threshold=35,
                 is_missing=is_missing
             )
             st.plotly_chart(downtime_fig, use_container_width=True)
@@ -1768,7 +1801,7 @@ with Metrics_Calculation_API:
             cal_fig = create_gauge_chart(
                 value=depreciation,
                 title="Equipment Depreciation Rate",
-                good_threshold=1,
+                good_threshold=10,
                 warning_threshold=20,
                 is_missing=is_missing
             )
@@ -1808,7 +1841,7 @@ with Metrics_Calculation_API:
                 value=booking_discrepancy,
                 title="Booking Discrepancy",
                 good_threshold=10,
-                warning_threshold=15,
+                warning_threshold=30,
                 is_missing=is_missing
             )
             st.plotly_chart(util_fig, use_container_width=True)
