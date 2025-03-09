@@ -251,18 +251,11 @@ with st.sidebar:
         try:
             client = pymongo.MongoClient(CONNECTION_STRING)
             db = client[DATABASE_NAME]
-            metrics_col = db[METRICS_COLLECTION]
-            metrics_meta = db["metrics_metadata"]
-            cand_stations = metrics_col.distinct("station")
-            stations = []
-            for station in cand_stations:
-                last_processed = metrics_meta.find_one({"station": station})
-                if last_processed["last_processed"] < cutoff_date:
-                    continue
-                else:
-                    stations.append(station)
-            client.close()
-            return sorted(stations)
+            collections = db.list_collection_names()
+            collections_to_remove = ["equipment_metrics", "metrics_metadata"]
+            collections_result = [collection for collection in collections if collection not in collections_to_remove]
+            sorted(collections_result)
+            return collections_result
         except Exception as e:
             st.error(f"Error getting stations: {e}")
             return []
@@ -626,12 +619,12 @@ with Dashboard:
             "log_counts_per_hour": data["log_counts_per_hour"]
         })
         fig = go.Figure()
-        fig.add_trace(go.Scatter(x = time_logs['timestamp'], y = time_logs['log_counts_per_hour'], mode = 'lines', name = 'Log counts per hour', showlegend=True))
+        fig.add_trace(go.Scatter(x = time_logs['timestamp'], y = time_logs['log_counts_per_hour'], mode = 'lines', name = 'Log counts per hour', showlegend=True, hovertemplate='%{x} - %{y}<extra></extra>'))
         fig.update_layout(
             title="Number of Test over time by Station",
             xaxis_title="Timestamp",
             yaxis_title="Log counts per hour",
-            hovermode="closest",
+            hovermode="x unified",
             xaxis_rangeslider_visible=False,
             legend=dict(
                 title="Tests",  # Title for the legend
@@ -647,7 +640,7 @@ with Dashboard:
                 tickvals=time_logs['timestamp'][::96],  # Show every 24th timestamp (change this number as needed)
                 ticktext=time_logs['timestamp'][::96],  # Custom labels for tick marks (you can customize this)
                 tickangle=45  # Rotate the tick labels to make them more readable
-            )
+            ), 
         )
         st.plotly_chart(fig)
         # st.line_chart(time_logs, x="timestamp", y="log_counts_per_hour")
@@ -665,12 +658,12 @@ with Dashboard:
             fig = go.Figure()
             for group in group_time_json:
                 if group != "_group_index":  # Avoid plotting the '_group_index'
-                    fig.add_trace(go.Scatter(x=time_groups['timestamp'], y=time_groups[group], mode='lines', name=group, showlegend=True))
+                    fig.add_trace(go.Scatter(x=time_groups['timestamp'], y=time_groups[group], mode='lines', name=group, showlegend=True, hovertemplate='%{x} - %{y}<extra></extra>'))
             fig.update_layout(
                 title="Number of Groups over Time",
                 xaxis_title="Timestamp",
                 yaxis_title="Group Counts",
-                hovermode="closest",
+                hovermode="x unified",
                 xaxis_rangeslider_visible=False,
                 legend=dict(
                     title="Groups",  # Title for the legend
@@ -701,12 +694,12 @@ with Dashboard:
             fig = go.Figure()
             for label in label_time_json:
                 if label != "_label_index":  # Avoid plotting the '_group_index'
-                    fig.add_trace(go.Scatter(x=time_labels['timestamp'], y=time_labels[label], mode='lines', name=label, showlegend=True))
+                    fig.add_trace(go.Scatter(x=time_labels['timestamp'], y=time_labels[label], mode='lines', name=label, showlegend=True, hovertemplate='%{x} - %{y}<extra></extra>'))
             fig.update_layout(
                 title="Number of Labels over Time",
                 xaxis_title="Timestamp",
                 yaxis_title="Label Counts",
-                hovermode="closest",
+                hovermode="x unified",
                 xaxis_rangeslider_visible=False,
                 legend=dict(
                     title="Labels",  # Title for the legend
@@ -749,7 +742,8 @@ with Dashboard:
                         y=[0] * len(time_repos),  # Replace None with zero or a default value
                         mode='lines',
                         name="null repo",  # Label the trace as "null repo" in the legend
-                        showlegend=True
+                        showlegend=True,
+                        hovertemplate='%{x} - %{y}<extra></extra>'
                     ))
                 else:
                     fig.add_trace(go.Scatter(
@@ -757,7 +751,8 @@ with Dashboard:
                         y=time_repos[repo],  # Use the repository's count values
                         mode='lines',
                         name=repo,  # Use the repository name in the legend
-                        showlegend=True
+                        showlegend=True,
+                        hovertemplate='%{x} - %{y}<extra></extra>'
                     ))
 
             # Customize the layout
@@ -765,7 +760,7 @@ with Dashboard:
                 title="Number of Repos over Time",
                 xaxis_title="Timestamp",
                 yaxis_title="Repo Counts",
-                hovermode="closest",
+                hovermode="x unified",
                 xaxis_rangeslider_visible=False,  # Adds a range slider for zoom functionality
                 legend=dict(
                     title="Repositories",  # Title for the legend
@@ -805,7 +800,8 @@ with Dashboard:
                     y=time_methods[method],  # Use the method count values for each method
                     mode='lines',
                     name=method,  # Use the method name in the legend
-                    showlegend=True
+                    showlegend=True,
+                    hovertemplate='%{x} - %{y}<extra></extra>'
                 ))
             # Customize the layout for better readability and style
             fig.update_layout(
@@ -851,7 +847,8 @@ with Dashboard:
                 y=time_modules[module],  # Use the module count values for each module
                 mode='lines',
                 name=module,  # Use the module name in the legend
-                showlegend=True
+                showlegend=True,
+                hovertemplate='%{x} - %{y}<extra></extra>'
             ))
 
         # Customize the layout for better readability and style
@@ -888,12 +885,12 @@ with Dashboard:
             "log_counts_per_day": data["log_counts_per_day"]
         })
         fig = go.Figure()
-        fig.add_trace(go.Scatter(x = time_logs['timestamp'], y = time_logs['log_counts_per_day'], mode = 'lines', name = 'Log counts per day', showlegend=True))
+        fig.add_trace(go.Scatter(x = time_logs['timestamp'], y = time_logs['log_counts_per_day'], mode = 'lines', name = 'Log counts per day', showlegend=True, hovertemplate='%{x} - %{y}<extra></extra>'))
         fig.update_layout(
             title="Number of Test over time by Station",
             xaxis_title="Timestamp",
             yaxis_title="Log counts per day",
-            hovermode="closest",
+            hovermode="x unified",
             xaxis_rangeslider_visible=False,
             legend=dict(
                 title="Tests",  # Title for the legend
@@ -921,12 +918,12 @@ with Dashboard:
             fig = go.Figure()
             for group in group_time_json:
                 if group != "_group_index":  # Avoid plotting the '_group_index'
-                    fig.add_trace(go.Scatter(x=time_groups['timestamp'], y=time_groups[group], mode='lines', name=group, showlegend=True))
+                    fig.add_trace(go.Scatter(x=time_groups['timestamp'], y=time_groups[group], mode='lines', name=group, showlegend=True, hovertemplate='%{x} - %{y}<extra></extra>'))
             fig.update_layout(
                 title="Number of Groups over Time",
                 xaxis_title="Timestamp",
                 yaxis_title="Group Counts Per Day",
-                hovermode="closest",
+                hovermode="x unified",
                 xaxis_rangeslider_visible=False,
                 legend=dict(
                     title="Groups",  # Title for the legend
@@ -951,12 +948,12 @@ with Dashboard:
             fig = go.Figure()
             for label in label_time_json:
                 if label != "_label_index":  # Avoid plotting the '_group_index'
-                    fig.add_trace(go.Scatter(x=time_labels['timestamp'], y=time_labels[label], mode='lines', name=label, showlegend=True))
+                    fig.add_trace(go.Scatter(x=time_labels['timestamp'], y=time_labels[label], mode='lines', name=label, showlegend=True, hovertemplate='%{x} - %{y}<extra></extra>'))
             fig.update_layout(
                 title="Number of Labels over Time",
                 xaxis_title="Timestamp",
                 yaxis_title="Label Counts Per Day",
-                hovermode="closest",
+                hovermode="x unified",
                 xaxis_rangeslider_visible=False,
                 legend=dict(
                     title="Labels",  # Title for the legend
@@ -993,7 +990,8 @@ with Dashboard:
                         y=[0] * len(time_repos),  # Replace None with zero or a default value
                         mode='lines',
                         name="null repo",  # Label the trace as "null repo" in the legend
-                        showlegend=True
+                        showlegend=True,
+                        hovertemplate='%{x} - %{y}<extra></extra>'
                     ))
                 else:
                     fig.add_trace(go.Scatter(
@@ -1001,7 +999,8 @@ with Dashboard:
                         y=time_repos[repo],  # Use the repository's count values
                         mode='lines',
                         name=repo,  # Use the repository name in the legend
-                        showlegend=True
+                        showlegend=True,
+                        hovertemplate='%{x} - %{y}<extra></extra>'
                     ))
 
             # Customize the layout
@@ -1009,7 +1008,7 @@ with Dashboard:
                 title="Number of Repos over Time",
                 xaxis_title="Timestamp",
                 yaxis_title="Repo Counts Per Day",
-                hovermode="closest",
+                hovermode="x unified",
                 xaxis_rangeslider_visible=False,  # Adds a range slider for zoom functionality
                 legend=dict(
                     title="Repositories",  # Title for the legend
@@ -1043,7 +1042,8 @@ with Dashboard:
                     y=time_methods[method],  # Use the method count values for each method
                     mode='lines',
                     name=method,  # Use the method name in the legend
-                    showlegend=True
+                    showlegend=True,
+                    hovertemplate='%{x} - %{y}<extra></extra>'
                 ))
             # Customize the layout for better readability and style
             fig.update_layout(
@@ -1083,7 +1083,8 @@ with Dashboard:
                 y=time_modules[module],  # Use the module count values for each module
                 mode='lines',
                 name=module,  # Use the module name in the legend
-                showlegend=True
+                showlegend=True,
+                hovertemplate='%{x} - %{y}<extra></extra>'
             ))
 
         # Customize the layout for better readability and style
@@ -1114,12 +1115,12 @@ with Dashboard:
             "log_counts_per_month": data["log_counts_per_month"]
         })
         fig = go.Figure()
-        fig.add_trace(go.Scatter(x = time_logs['timestamp'], y = time_logs['log_counts_per_month'], mode = 'lines', name = 'Log counts per month', showlegend=True))
+        fig.add_trace(go.Scatter(x = time_logs['timestamp'], y = time_logs['log_counts_per_month'], mode = 'lines', name = 'Log counts per month', showlegend=True, hovertemplate='%{x} - %{y}<extra></extra>'))
         fig.update_layout(
             title="Number of Test over time by Station",
             xaxis_title="Timestamp",
             yaxis_title="Log counts per month",
-            hovermode="closest",
+            hovermode="x unified",
             xaxis_rangeslider_visible=False,
             legend=dict(
                 title="Tests",  # Title for the legend
@@ -1147,12 +1148,12 @@ with Dashboard:
             fig = go.Figure()
             for group in group_time_json:
                 if group != "_group_index":  # Avoid plotting the '_group_index'
-                    fig.add_trace(go.Scatter(x=time_groups['timestamp'], y=time_groups[group], mode='lines', name=group, showlegend=True))
+                    fig.add_trace(go.Scatter(x=time_groups['timestamp'], y=time_groups[group], mode='lines', name=group, showlegend=True, hovertemplate='%{x} - %{y}<extra></extra>'))
             fig.update_layout(
                 title="Number of Groups over Time",
                 xaxis_title="Timestamp",
                 yaxis_title="Group Counts Per Month",
-                hovermode="closest",
+                hovermode="x unified",
                 xaxis_rangeslider_visible=False,
                 legend=dict(
                     title="Groups",  # Title for the legend
@@ -1177,12 +1178,12 @@ with Dashboard:
             fig = go.Figure()
             for label in label_time_json:
                 if label != "_label_index":  # Avoid plotting the '_group_index'
-                    fig.add_trace(go.Scatter(x=time_labels['timestamp'], y=time_labels[label], mode='lines', name=label, showlegend=True))
+                    fig.add_trace(go.Scatter(x=time_labels['timestamp'], y=time_labels[label], mode='lines', name=label, showlegend=True, hovertemplate='%{x} - %{y}<extra></extra>'))
             fig.update_layout(
                 title="Number of Labels over Time",
                 xaxis_title="Timestamp",
                 yaxis_title="Label Counts Per Month",
-                hovermode="closest",
+                hovermode="x unified",
                 xaxis_rangeslider_visible=False,
                 legend=dict(
                     title="Labels",  # Title for the legend
@@ -1219,7 +1220,8 @@ with Dashboard:
                         y=[0] * len(time_repos),  # Replace None with zero or a default value
                         mode='lines',
                         name="null repo",  # Label the trace as "null repo" in the legend
-                        showlegend=True
+                        showlegend=True,
+                        hovertemplate='%{x} - %{y}<extra></extra>'
                     ))
                 else:
                     fig.add_trace(go.Scatter(
@@ -1227,7 +1229,8 @@ with Dashboard:
                         y=time_repos[repo],  # Use the repository's count values
                         mode='lines',
                         name=repo,  # Use the repository name in the legend
-                        showlegend=True
+                        showlegend=True,
+                        hovertemplate='%{x} - %{y}<extra></extra>'
                     ))
 
             # Customize the layout
@@ -1235,7 +1238,7 @@ with Dashboard:
                 title="Number of Repos over Time",
                 xaxis_title="Timestamp",
                 yaxis_title="Repo Counts Per Month",
-                hovermode="closest",
+                hovermode="x unified",
                 xaxis_rangeslider_visible=False,  # Adds a range slider for zoom functionality
                 legend=dict(
                     title="Repositories",  # Title for the legend
@@ -1269,7 +1272,8 @@ with Dashboard:
                     y=time_methods[method],  # Use the method count values for each method
                     mode='lines',
                     name=method,  # Use the method name in the legend
-                    showlegend=True
+                    showlegend=True,
+                    hovertemplate='%{x} - %{y}<extra></extra>'
                 ))
             # Customize the layout for better readability and style
             fig.update_layout(
@@ -1309,7 +1313,8 @@ with Dashboard:
                 y=time_modules[module],  # Use the module count values for each module
                 mode='lines',
                 name=module,  # Use the module name in the legend
-                showlegend=True
+                showlegend=True,
+                hovertemplate='%{x} - %{y}<extra></extra>'
             ))
 
         # Customize the layout for better readability and style
