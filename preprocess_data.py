@@ -55,10 +55,10 @@ def process_data_background(connection_string, database_name, collection_name, f
         df["total_usage_time_hours"] = (df["end_time"] - df["start_time"]).dt.total_seconds() / 3600
         logger.info(f"Actual usage time1: {df['total_usage_time_hours'].to_string()}")
 
-        measurement_df = df["KEYD"].apply(lambda x: x["measurement_times"] if isinstance(x, dict) else 0)
-        df["actual_usage_time"] = measurement_df.apply(lambda x: x["real_test_time"] / 3600 if isinstance(x, dict) else 0)
+        # measurement_df = df["KEYD"].apply(lambda x: x["measurement_times"] if isinstance(x, dict) else 0)
+        # df["actual_usage_time"] = measurement_df.apply(lambda x: x["real_test_time"] / 3600 if isinstance(x, dict) else 0)
 
-        logger.info(f"Actual usage time: {df['actual_usage_time'].to_string()}")
+        # logger.info(f"Actual usage time: {df['actual_usage_time'].to_string()}")
 
         df = df.sort_values(by="datetime")
         
@@ -74,6 +74,8 @@ def process_data_background(connection_string, database_name, collection_name, f
         # Filter records between start_date and end_date
         df_filtered = df[(df['datetime'] >= start_date) & (df['datetime'] <= end_date)]
         
+
+
         # Define a function to count records per hour for a distinct field
         def count_records_per_hour(field):
             counts_per_hour = df_filtered.groupby([df_filtered['datetime'].dt.floor('h'), field]).size()
@@ -156,11 +158,11 @@ def process_data_background(connection_string, database_name, collection_name, f
         return False
 
 if __name__ == '__main__':
-    process_data_background("mongodb+srv://piyushaaryan:dW2iDwGyu6GIIn5t@visdb.ukrkn.mongodb.net/", "equipment", "ADBFI", {"start_date": datetime.now() - timedelta(days=90), "end_date": datetime.now()})
+    # process_data_background("mongodb+srv://piyushaaryan:dW2iDwGyu6GIIn5t@visdb.ukrkn.mongodb.net/", "equipment", "ADBFI", {"start_date": datetime.now() - timedelta(days=90), "end_date": datetime.now()})
     # process_data_background("mongodb+srv://piyushaaryan:dW2iDwGyu6GIIn5t@visdb.ukrkn.mongodb.net/", "equipment", "KAAPP2Q", {"start_date": datetime.now() - timedelta(days=90), "end_date": datetime.now()})
     # process_data_background("mongodb+srv://piyushaaryan:dW2iDwGyu6GIIn5t@visdb.ukrkn.mongodb.net/", "equipment", "StationAA", {"start_date": datetime.now() - timedelta(days=90), "end_date": datetime.now()})
     # process_data_background("mongodb+srv://piyushaaryan:dW2iDwGyu6GIIn5t@visdb.ukrkn.mongodb.net/", "equipment", "StationK", {"start_date": datetime.now() - timedelta(days=90), "end_date": datetime.now()})
     # process_data_background("mongodb+srv://piyushaaryan:dW2iDwGyu6GIIn5t@visdb.ukrkn.mongodb.net/", "equipment", "StationL", {"start_date": datetime.now() - timedelta(days=90), "end_date": datetime.now()})
     # process_data_background("mongodb+srv://piyushaaryan:dW2iDwGyu6GIIn5t@visdb.ukrkn.mongodb.net/", "equipment", "StationS", {"start_date": datetime.now() - timedelta(days=90), "end_date": datetime.now()})
     # process_data_background("mongodb+srv://piyushaaryan:dW2iDwGyu6GIIn5t@visdb.ukrkn.mongodb.net/", "equipment", "StationW", {"start_date": datetime.now() - timedelta(days=90), "end_date": datetime.now()})
-    # process_data_background("mongodb+srv://piyushaaryan:dW2iDwGyu6GIIn5t@visdb.ukrkn.mongodb.net/", "equipment", "VSPartial", {"start_date": datetime.now() - timedelta(days=90), "end_date": datetime.now()})
+    process_data_background("mongodb+srv://piyushaaryan:dW2iDwGyu6GIIn5t@visdb.ukrkn.mongodb.net/", "equipment", "VSPartial", {"start_date": datetime.now() - timedelta(days=90), "end_date": datetime.now()})

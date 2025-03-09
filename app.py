@@ -1766,7 +1766,7 @@ with Metrics_Calculation_API:
         with col1:
             st.markdown('<div class="section-header">4. Cost & Efficiency Metrics</div>', unsafe_allow_html=True)
             # Cost Per Test
-            cost = float(metrics.get('estimated_cost_per_test', metrics.get('cost_per_test', 12.75)))
+            cost = float(metrics.get('estimated_cost_per_test') or metrics.get('cost_per_test') or 12.75)
             
             st.markdown(f"""
             <div style="background-color:white; padding:20px; border-radius:5px; margin-bottom:10px;">
@@ -1779,7 +1779,7 @@ with Metrics_Calculation_API:
             """, unsafe_allow_html=True)
             
             # Energy Consumption
-            energy = float(metrics.get('estimated_energy_per_test_kwh', metrics.get('energy_consumption', 2.4)))
+            energy = float(metrics.get('estimated_energy_per_test_kwh') or metrics.get('energy_consumption') or 2.4)
             
             st.markdown(f"""
             <div style="background-color:white; padding:20px; border-radius:5px; margin-bottom:10px;">
