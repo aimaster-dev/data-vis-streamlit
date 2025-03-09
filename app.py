@@ -37,7 +37,7 @@ cutoff_date = datetime(2024, 1, 1)
 
 # Initialize session state
 if "selected_station" not in st.session_state:
-    st.session_state.selected_station = "StationL"
+    st.session_state.selected_station = "ADBFI"
 
 if "selected_group" not in st.session_state:
     st.session_state.selected_group = "All Groups"
