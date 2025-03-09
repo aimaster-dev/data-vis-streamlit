@@ -533,41 +533,135 @@ with Dashboard:
             st.header("Number of Repos over Time")
             # print(data["group_counts_per_hour"])
             # print("1q1q1q1q1", data["group_counts_per_hour"])
-            group_time_json = data["repo_counts_per_hour"].copy()
-            del group_time_json["repo_index"]
-            time_groups = pd.DataFrame({
+            repo_time_json = data["repo_counts_per_hour"].copy()
+            del repo_time_json["repo_index"]
+            time_repos = pd.DataFrame({
                 "timestamp": data["dates"],
-                **group_time_json
+                **repo_time_json
             })
             repository_index = data["repo_counts_per_hour"]["repo_index"]
-            if None in repository_index:
-                # If there's a None, display a default "null repo" value for y-axis
-                st.line_chart(time_groups, x="timestamp", y=["null"])
-            else:
-                st.line_chart(time_groups, x="timestamp", y=repository_index)
+            fig = go.Figure()
+
+            # Add a trace for each repository
+            for repo in repository_index:
+                if repo is None:
+                    fig.add_trace(go.Scatter(
+                        x=time_repos['timestamp'],
+                        y=[0] * len(time_repos),  # Replace None with zero or a default value
+                        mode='lines',
+                        name="null repo",  # Label the trace as "null repo" in the legend
+                        showlegend=True
+                    ))
+                else:
+                    fig.add_trace(go.Scatter(
+                        x=time_repos['timestamp'],
+                        y=time_repos[repo],  # Use the repository's count values
+                        mode='lines',
+                        name=repo,  # Use the repository name in the legend
+                        showlegend=True
+                    ))
+
+            # Customize the layout
+            fig.update_layout(
+                title="Number of Repos over Time",
+                xaxis_title="Timestamp",
+                yaxis_title="Repo Counts",
+                hovermode="closest",
+                xaxis_rangeslider_visible=False,  # Adds a range slider for zoom functionality
+                legend=dict(
+                    title="Repositories",  # Title for the legend
+                    x=0.5,                # Center the legend horizontally
+                    y=1.1,                # Position the legend above the plot
+                    xanchor='center',     # Ensure the legend is centered horizontally
+                    yanchor='bottom',     # Position the legend at the top
+                    traceorder="normal",  # Order the traces in the legend normally
+                    font=dict(size=12),   # Font size for legend items
+                )
+            )
+
+            # Display the plot in Streamlit using Plotly
+            st.plotly_chart(fig)
 
         with hour_method:
             st.header("Number of Methods over Time")
-            # print(data["group_counts_per_hour"])
-            # print("1q1q1q1q1", data["group_counts_per_hour"])
-            group_time_json = data["method_counts_per_hour"].copy()
-            del group_time_json["method_index"]
-            time_groups = pd.DataFrame({
+            methods_time_json = data["method_counts_per_hour"].copy()
+            del methods_time_json["method_index"]
+            time_methods = pd.DataFrame({
                 "timestamp": data["dates"],
-                **group_time_json
+                **methods_time_json
             })
-            st.line_chart(time_groups, x="timestamp", y=data["method_counts_per_hour"]["method_index"])
+            method_index = data["method_counts_per_hour"]["method_index"]
+            # Create the Plotly figure
+            fig = go.Figure()
+            # Add a trace for each method
+            for method in method_index:
+                fig.add_trace(go.Scatter(
+                    x=time_methods['timestamp'],
+                    y=time_methods[method],  # Use the method count values for each method
+                    mode='lines',
+                    name=method,  # Use the method name in the legend
+                    showlegend=True
+                ))
+            # Customize the layout for better readability and style
+            fig.update_layout(
+                title="Number of Methods over Time",
+                xaxis_title="Timestamp",
+                yaxis_title="Method Count",
+                showlegend=True,  # Display the legend
+                legend=dict(
+                    title="Methods",  # Title for the legend
+                    x=0.5,                # Center the legend horizontally
+                    y=1.1,                # Position the legend above the plot
+                    xanchor='center',     # Ensure the legend is centered horizontally
+                    yanchor='bottom',     # Position the legend at the top
+                    traceorder="normal",  # Order the traces in the legend normally
+                    font=dict(size=12),   # Font size for legend items
+                )
+            )
+            # Display the plotly chart in Streamlit
+            st.plotly_chart(fig)
 
         st.header("Number of Modules over Time")
-        # print(data["group_counts_per_hour"])
-        # print("1q1q1q1q1", data["group_counts_per_hour"])
-        group_time_json = data["module_counts_per_hour"].copy()
-        del group_time_json["module_index"]
-        time_groups = pd.DataFrame({
+        module_time_json = data["module_counts_per_hour"].copy()
+        del module_time_json["module_index"]
+        time_modules = pd.DataFrame({
             "timestamp": data["dates"],
-            **group_time_json
+            **module_time_json
         })
-        st.line_chart(time_groups, x="timestamp", y=data["module_counts_per_hour"]["module_index"])
+        module_index = data["module_counts_per_hour"]["module_index"]
+
+        # Create the Plotly figure
+        fig = go.Figure()
+
+        # Add a trace for each module
+        for module in module_index:
+            fig.add_trace(go.Scatter(
+                x=time_modules['timestamp'],
+                y=time_modules[module],  # Use the module count values for each module
+                mode='lines',
+                name=module,  # Use the module name in the legend
+                showlegend=True
+            ))
+
+        # Customize the layout for better readability and style
+        fig.update_layout(
+            title="Number of Modules over Time",
+            xaxis_title="Timestamp",
+            yaxis_title="Module Count",
+            showlegend=True,  # Display the legend
+            legend=dict(
+                    title="Modules",  # Title for the legend
+                    x=0.5,                # Center the legend horizontally
+                    y=1.1,                # Position the legend above the plot
+                    xanchor='center',     # Ensure the legend is centered horizontally
+                    yanchor='bottom',     # Position the legend at the top
+                    traceorder="normal",  # Order the traces in the legend normally
+                    font=dict(size=12),   # Font size for legend items
+                )
+        )
+
+        # Display the plotly chart in Streamlit
+        st.plotly_chart(fig)
 
     with Day:
         start_date = datetime.now() - timedelta(days=90)
