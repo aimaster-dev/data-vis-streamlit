@@ -14,9 +14,9 @@ def process_data_background(connection_string, database_name, collection_name, f
         
         client = pymongo.MongoClient(
             connection_string,
-            serverSelectionTimeoutMS=100000,  # Increase timeout to 30 seconds
-            connectTimeoutMS=100000,          # Increase connection timeout to 30 seconds
-            socketTimeoutMS=100000            # Increase socket timeout to 30 seconds
+            serverSelectionTimeoutMS=1000000,  # Increase timeout to 30 seconds
+            connectTimeoutMS=1000000,          # Increase connection timeout to 30 seconds
+            socketTimeoutMS=1000000            # Increase socket timeout to 30 seconds
         )
         db = client[database_name]
         collection = db[collection_name]
